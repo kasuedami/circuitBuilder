@@ -6,3 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eframe = "0.24.1"
+circuitsim = { git = "https://github.com/kasuedami/circuitsim.git" }
+rfd = "0.12.1"
+serde = "1.0.195"
+serde_json = "1.0.111"
