@@ -33,6 +33,7 @@ struct CircuitBuilder {
 struct OccupiedSides {
     top: f32,
     left: f32,
+    right: f32,
 }
 
 #[derive(Default)]
@@ -53,6 +54,7 @@ impl eframe::App for CircuitBuilder {
 
         self.menu_bar(ctx);
         self.explorer(ctx);
+        self.inspector(ctx);
     }
 }
 
@@ -145,6 +147,86 @@ impl CircuitBuilder {
                                 });
                         }
                     });
+            }
+
+            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+
+        }).response.rect.height();
+    }
+
+    fn inspector(&mut self, ctx: &egui::Context) {
+        self.occupied_sides.right = SidePanel::right("inspector").show(ctx, |ui| {
+            if let Some(circuit) = &self.circuit {
+
+                match self.selected_element {
+                    SelectedElement::None => { ui.label("No element selected"); },
+                    SelectedElement::Input(index) => {
+                        ui.label(format!("Input {index}"));
+                        ui.separator();
+
+                        let value_index = circuit.input(index).value_index();
+                        ui.label(format!("Value index: {value_index}"));
+
+                        if let Some(simulator) = &mut self.simulator {
+                            let current_value = simulator.value_for_index(value_index);
+                            if ui.button(current_value.to_string()).clicked() {
+                                simulator.set_input(index, !current_value);
+                            }
+                        }
+                    },
+                    SelectedElement::Output(index) => {
+                        ui.label(format!("Output {index}"));
+                        ui.separator();
+
+                        let value_index = circuit.output(index).value_index();
+                        ui.label(format!("Value index: {value_index}"));
+
+                        if let Some(simulator) = &mut self.simulator {
+                            let current_value = simulator.value_for_index(value_index);
+                            ui.label(current_value.to_string());
+                        }
+                    },
+                    SelectedElement::Component(index) => {
+                        let component = circuit.component(index);
+                        let function = component.function();
+
+                        ui.label(format!("Component {index} {function}"));
+                        ui.separator();
+
+                        ui.label("Inputs");
+
+                        for i in 0..component.input_value_indices().len() {
+                            let value_index = component.input_value_indices()[i];
+
+                            ui.horizontal(|ui| {
+                                ui.label(format!("{i}: Value index {value_index}"));
+
+                                if let Some(simulator) = &self.simulator {
+                                    let value = simulator.value_for_index(value_index);
+                                    ui.label(value.to_string());
+                                }
+                            });
+                        }
+
+                        ui.separator();
+                        ui.label("Outputs");
+
+                        for i in 0..component.output_value_indices().len() {
+                            let value_index = component.output_value_indices()[i];
+
+                            ui.horizontal(|ui| {
+                                ui.label(format!("{i}: Value index {value_index}"));
+
+                                if let Some(simulator) = &self.simulator {
+                                    let value = simulator.value_for_index(value_index);
+                                    ui.label(value.to_string());
+                                }
+                            });
+                        }
+
+                    },
+                }
+
             }
 
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
