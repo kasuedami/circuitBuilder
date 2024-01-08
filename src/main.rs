@@ -1,7 +1,7 @@
 use std::fs;
 
-use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder}, epaint::Vec2};
-use simulator::{Circuit, simulator::Simulator};
+use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider}, epaint::Vec2};
+use simulator::{Circuit, simulator::Simulator, function::Function};
 
 const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3}"#;
 
@@ -25,6 +25,7 @@ fn main() -> Result<(), eframe::Error> {
 struct CircuitBuilder {
     circuit: Option<Circuit>,
     selected_element: SelectedElement,
+    adding_element: AddingElement,
     simulator: Option<Simulator>,
     occupied_sides: OccupiedSides,
 }
@@ -43,6 +44,20 @@ enum SelectedElement {
     Input(usize),
     Output(usize),
     Component(usize),
+}
+
+#[derive(Default)]
+enum AddingElement {
+    #[default]
+    None,
+    Input,
+    Output(usize),
+    Component(AddComponentData),
+}
+
+struct AddComponentData {
+    function: Function,
+    input_value_indices: Vec<usize>,
 }
 
 impl eframe::App for CircuitBuilder {
@@ -149,6 +164,53 @@ impl CircuitBuilder {
                     });
             }
 
+            if self.circuit.is_some() && self.simulator.is_none() {
+
+                ui.separator();
+                ui.label("Add elements");
+
+                ui.horizontal(|ui| {
+                    if ui.button("Input").clicked() {
+                        self.adding_element = AddingElement::Input;
+                    }
+
+                    if ui.button("Output").clicked() {
+                        self.adding_element = AddingElement::Output(0);
+                    }
+
+                    if ui.button("Component").clicked() {
+                        self.adding_element = AddingElement::Component(AddComponentData::default());
+                    }
+                });
+
+                match &mut self.adding_element {
+                    AddingElement::None => (),
+                    AddingElement::Input => {
+                        ui.label("Adding new input");
+
+                        if ui.button("Confirm").clicked() {
+                            self.circuit.as_mut().unwrap().add_input();
+                            self.adding_element = AddingElement::None;
+                        }
+                    },
+                    AddingElement::Output(index) => {
+                        ui.label("Adding new output");
+
+                        let mut value = *index;
+                        let value_range = 0..=self.circuit.as_ref().unwrap().value_list_len() - 1;
+                        ui.add(Slider::new(&mut value, value_range));
+
+                        *index = value;
+
+                        if ui.button("Confirm").clicked() {
+                            self.circuit.as_mut().unwrap().add_output(*index);
+                            self.adding_element = AddingElement::None;
+                        }
+                    },
+                    AddingElement::Component(_) => todo!(),
+                }
+            }
+
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
 
         }).response.rect.height();
@@ -232,5 +294,14 @@ impl CircuitBuilder {
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
 
         }).response.rect.height();
+    }
+}
+
+impl Default for AddComponentData {
+    fn default() -> Self {
+        Self {
+            function: Function::And,
+            input_value_indices: Default::default()
+        }
     }
 }
