@@ -1,6 +1,6 @@
 use std::fs;
 
-use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider}, epaint::Vec2};
+use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider, ComboBox}, epaint::Vec2};
 use simulator::{Circuit, simulator::Simulator, function::Function};
 
 const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3}"#;
@@ -207,7 +207,56 @@ impl CircuitBuilder {
                             self.adding_element = AddingElement::None;
                         }
                     },
-                    AddingElement::Component(_) => todo!(),
+                    AddingElement::Component(component_data) => {
+                        ui.label("Adding new component");
+
+                        let options = &[
+                            Function::And,
+                            Function::Or,
+                            Function::Not,
+                            Function::Nand,
+                            Function::Nor,
+                            Function::Circuit(Circuit::new()),
+                            Function::FlipFlopRS,
+                            Function::FlipFlopJK,
+                            Function::FlipFlopD,
+                            Function::FlipFlopT,
+                        ];
+
+                        let current_discriminatn = std::mem::discriminant(&component_data.function);
+                        let mut value = options.iter().position(|value| current_discriminatn == std::mem::discriminant(value)).unwrap();
+
+                        ComboBox::from_label("Choose function")
+                            .show_index(ui, &mut value, options.len(), |i| format!("{}", options[i]));
+
+                        if current_discriminatn != std::mem::discriminant(&options[value]) {
+                            component_data.function = options[value].clone();
+
+                            if component_data.input_value_indices.len() != component_data.function.input_value_count() {
+                                component_data.input_value_indices.resize(component_data.function.input_value_count(), 0);
+                            }
+                        }
+
+                        if let Function::Circuit(ref mut circuit) = &mut component_data.function {
+                            if ui.button("Choose circuit").clicked() {
+                                if let Some(file) = rfd::FileDialog::new().pick_file() {
+                                    let contents = fs::read_to_string(file).unwrap();
+                                    let loaded: Circuit = serde_json::from_str(&contents).unwrap();
+
+                                    *circuit = loaded;
+                                }
+                            }
+                        }
+
+                        for i in 0..component_data.input_value_indices.len() {
+                            ui.add(Slider::new(&mut component_data.input_value_indices[i], 0..=self.circuit.as_ref().unwrap().value_list_len() - 1));
+                        }
+
+                        if ui.button("Confirm").clicked() {
+                            self.circuit.as_mut().unwrap().add_component(component_data.function.clone(), component_data.input_value_indices.clone());
+                            self.adding_element = AddingElement::None;
+                        }
+                    },
                 }
             }
 
