@@ -1,6 +1,6 @@
 use std::fs;
 
-use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider, ComboBox}, epaint::Vec2};
+use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider, ComboBox, CentralPanel, Rect, Painter}, epaint::{Vec2, Pos2, Color32, Stroke}};
 use simulator::{Circuit, simulator::Simulator, function::Function};
 
 const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3}"#;
@@ -28,13 +28,18 @@ struct CircuitBuilder {
     adding_element: AddingElement,
     simulator: Option<Simulator>,
     occupied_sides: OccupiedSides,
+    editor: Editor,
 }
 
-#[derive(Default)]
+struct Editor {
+    gird_spacing: f32,
+}
+#[derive(Debug)]
 struct OccupiedSides {
     top: f32,
     left: f32,
     right: f32,
+    free_area: Rect,
 }
 
 #[derive(Default)]
@@ -70,6 +75,11 @@ impl eframe::App for CircuitBuilder {
         self.menu_bar(ctx);
         self.explorer(ctx);
         self.inspector(ctx);
+
+        let screen_rect = ctx.input(|i| i.screen_rect());
+        self.occupied_sides.calculate_free_area(screen_rect);
+
+        self.editor(ctx);
     }
 }
 
@@ -262,7 +272,7 @@ impl CircuitBuilder {
 
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
 
-        }).response.rect.height();
+        }).response.rect.width();
     }
 
     fn inspector(&mut self, ctx: &egui::Context) {
@@ -342,7 +352,50 @@ impl CircuitBuilder {
 
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
 
-        }).response.rect.height();
+        }).response.rect.width();
+    }
+
+    fn editor(&mut self, ctx: &egui::Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            let painter = ui.painter_at(self.occupied_sides.free_area);
+
+            self.editor_grid(painter);
+        });
+    }
+
+    fn editor_grid(&self, painter: Painter) {
+        let editor_v_start = self.occupied_sides.free_area.top();
+        let editor_v_end = self.occupied_sides.free_area.bottom();
+        let editor_h_start = self.occupied_sides.free_area.left();
+        let editor_h_end = self.occupied_sides.free_area.right();
+
+        let editor_height_range = editor_v_start..=editor_v_end;
+        let editor_width_range = editor_h_start..=editor_h_end;
+
+        let editor_grid_stroke = Stroke::new(2.0, Color32::DARK_GRAY);
+
+        let mut h_line_height = editor_v_start;
+        while h_line_height < editor_v_end {
+            painter.hline(editor_width_range.clone(), h_line_height, editor_grid_stroke);
+            h_line_height += self.editor.gird_spacing;
+        }
+
+        let mut v_line_height = editor_h_start;
+        while v_line_height < editor_h_end {
+            painter.vline(v_line_height, editor_height_range.clone(), editor_grid_stroke);
+            v_line_height += self.editor.gird_spacing;
+        }
+    }
+}
+
+impl Default for OccupiedSides {
+    fn default() -> Self {
+        Self {
+            top: Default::default(),
+            left: Default::default(),
+            right: Default::default(),
+            free_area: Rect::ZERO,
+        }
     }
 }
 
@@ -352,5 +405,24 @@ impl Default for AddComponentData {
             function: Function::And,
             input_value_indices: Default::default()
         }
+    }
+}
+
+impl Default for Editor {
+    fn default() -> Self {
+        Self { gird_spacing: 20.0 }
+    }
+}
+
+impl OccupiedSides {
+    fn calculate_free_area(&mut self, screen_rect: Rect) {
+        let top_left = Pos2::new(self.left, self.top);
+        let bottom_right = (screen_rect.right_bottom() - Pos2::new(self.right, 0.0)).to_pos2();
+
+        self.free_area = Rect::from_min_max(top_left, bottom_right);
+    }
+
+    fn offset_to_free_are(&self, position: Pos2) -> Pos2 {
+        position + Vec2::new(self.left, self.top)
     }
 }
