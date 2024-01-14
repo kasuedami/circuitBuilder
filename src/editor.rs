@@ -1,4 +1,4 @@
-use eframe::{epaint::{Rect, Stroke, Color32, Vec2}, egui::{Painter, self, CentralPanel, Layout}};
+use eframe::{epaint::{Rect, Stroke, Color32, Vec2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
 
 use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine};
 
@@ -27,8 +27,10 @@ impl Editor {
         CentralPanel::default().show(ctx, |ui| {
             let painter = ui.painter_at(self.area);
 
-            self.grid(&painter);
+            ctx.input(|input| self.circuit.update(self.area, input));
 
+            self.grid(&painter);
+            self.circuit.draw(&painter, self.area);
 
             ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
 
@@ -83,5 +85,20 @@ impl Default for Editor {
             area: Rect::ZERO,
             circuit: Default::default(),
         }
+    }
+}
+
+impl EditorCircuit {
+    fn update(&mut self, area: Rect, input: &InputState) {
+        if let Some(last_position) = input.pointer.latest_pos() {
+            if !area.contains(last_position) {
+                return;
+            }
+        }
+    }
+
+    fn draw(&self, painter: &Painter, area: Rect) {
+        self.inputs.iter()
+            .for_each(|input| input.draw(painter, area));
     }
 }
