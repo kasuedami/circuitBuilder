@@ -367,8 +367,13 @@ impl CircuitBuilder {
 
             self.editor_grid(&painter);
 
-
             if let Some(circuit) = &self.circuit {
+                self.editor.visuals.adjust_if_neccesary(circuit);
+
+                ctx.input(|input| {
+                    self.editor.visuals.handle_interaction(circuit, self.occupied_sides.free_area, input);
+                });
+
                 self.editor.visuals.draw(circuit, &painter, self.occupied_sides.free_area);
             }
         });
