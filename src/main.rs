@@ -2,6 +2,9 @@ use std::fs;
 
 use eframe::{egui::{self, TopBottomPanel, SidePanel, Label, Sense, ViewportBuilder, Slider, ComboBox, CentralPanel, Rect, Painter}, epaint::{Vec2, Pos2, Color32, Stroke}};
 use simulator::{Circuit, simulator::Simulator, function::Function};
+use visual::VisualCircuit;
+
+mod visual;
 
 const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3}"#;
 
@@ -33,6 +36,7 @@ struct CircuitBuilder {
 
 struct Editor {
     gird_spacing: f32,
+    visuals: VisualCircuit,
 }
 #[derive(Debug)]
 struct OccupiedSides {
@@ -359,11 +363,16 @@ impl CircuitBuilder {
         CentralPanel::default().show(ctx, |ui| {
             let painter = ui.painter_at(self.occupied_sides.free_area);
 
-            self.editor_grid(painter);
+            self.editor_grid(&painter);
+
+
+            if let Some(circuit) = &self.circuit {
+                self.editor.visuals.draw(circuit, &painter, self.occupied_sides.free_area);
+            }
         });
     }
 
-    fn editor_grid(&self, painter: Painter) {
+    fn editor_grid(&self, painter: &Painter) {
         let editor_v_start = self.occupied_sides.free_area.top();
         let editor_v_end = self.occupied_sides.free_area.bottom();
         let editor_h_start = self.occupied_sides.free_area.left();
@@ -410,7 +419,10 @@ impl Default for AddComponentData {
 
 impl Default for Editor {
     fn default() -> Self {
-        Self { gird_spacing: 20.0 }
+        Self {
+            gird_spacing: 20.0,
+            visuals: Default::default(),
+        }
     }
 }
 
