@@ -188,12 +188,14 @@ impl CircuitBuilder {
                         self.adding_element = AddingElement::Input;
                     }
 
-                    if ui.button("Output").clicked() {
-                        self.adding_element = AddingElement::Output(0);
-                    }
+                    if self.circuit.as_ref().unwrap().value_list_len() > 0 {
+                        if ui.button("Output").clicked() {
+                            self.adding_element = AddingElement::Output(0);
+                        }
 
-                    if ui.button("Component").clicked() {
-                        self.adding_element = AddingElement::Component(AddComponentData::default());
+                        if ui.button("Component").clicked() {
+                            self.adding_element = AddingElement::Component(AddComponentData::default());
+                        }
                     }
                 });
 
