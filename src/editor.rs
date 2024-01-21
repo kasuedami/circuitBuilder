@@ -1,6 +1,6 @@
 use eframe::{epaint::{Rect, Stroke, Color32, Vec2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
 
-use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine};
+use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw};
 
 mod elements;
 
@@ -100,5 +100,8 @@ impl EditorCircuit {
     fn draw(&self, painter: &Painter, area: Rect) {
         self.inputs.iter()
             .for_each(|input| input.draw(painter, area));
+
+            self.outputs.iter()
+            .for_each(|output| output.draw(painter, area));
     }
 }
