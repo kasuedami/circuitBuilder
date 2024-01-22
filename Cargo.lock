@@ -603,7 +603,7 @@ dependencies = [
 [[package]]
 name = "circuitsim"
 version = "0.1.0"
-source = "git+https://github.com/kasuedami/circuitsim.git#9823bf7a59915594bd3cd0cff9c0cae61e534707"
+source = "git+https://github.com/kasuedami/circuitsim.git?rev=43f893a#43f893acab28669dd8cbcb7a3158fbdcd59ed809"
 dependencies = [
  "inquire",
  "itertools",

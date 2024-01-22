@@ -1,10 +1,12 @@
-use eframe::{epaint::{Rect, Stroke, Color32, Vec2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
+use eframe::{epaint::{Rect, Stroke, Color32, Vec2, Pos2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
+use simulator::function::Function;
 
-use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw};
+use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw, Position};
 
 mod elements;
 
 pub struct Editor {
+    offset: Pos2,
     gird_spacing: f32,
     area: Rect,
     circuit: EditorCircuit,
@@ -30,24 +32,24 @@ impl Editor {
             ctx.input(|input| self.circuit.update(self.area, input));
 
             self.grid(&painter);
-            self.circuit.draw(&painter, self.area);
+            self.circuit.draw(&painter, self.gird_spacing, self.area);
 
             ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
 
                 if ui.button("Input").clicked() {
-                    self.circuit.inputs.push(EditorInput::new(self.area.center()));
+                    self.circuit.inputs.push(EditorInput::new(Position::new(2, 2)));
                 }
 
                 if ui.button("Output").clicked() {
-                    self.circuit.outputs.push(EditorOutput::new(self.area.center()));
+                    self.circuit.outputs.push(EditorOutput::new(Position::new(5, 5)));
                 }
 
                 if ui.button("Component").clicked() {
-                    self.circuit.components.push(EditorComponent::new(self.area.center()));
+                    self.circuit.components.push(EditorComponent::new(Position::new(10, 10), Function::And));
                 }
 
                 if ui.button("Line").clicked() {
-                    self.circuit.lines.push(EditorLine::new(self.area.center() - Vec2::new(50.0, 0.0), self.area.center() + Vec2::new(50.0, 0.0)));
+                    self.circuit.lines.push(EditorLine::new(Position::new(1, 15), Position::new(15, 15)));
                 }
             });
         });
@@ -81,6 +83,7 @@ impl Editor {
 impl Default for Editor {
     fn default() -> Self {
         Self {
+            offset: Pos2::ZERO,
             gird_spacing: 20.0,
             area: Rect::ZERO,
             circuit: Default::default(),
@@ -97,11 +100,17 @@ impl EditorCircuit {
         }
     }
 
-    fn draw(&self, painter: &Painter, area: Rect) {
-        self.inputs.iter()
-            .for_each(|input| input.draw(painter, area));
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
+        self.lines.iter()
+            .for_each(|line| line.draw(painter, scaling, area));
 
-            self.outputs.iter()
-            .for_each(|output| output.draw(painter, area));
+        self.inputs.iter()
+            .for_each(|input| input.draw(painter, scaling, area));
+
+        self.outputs.iter()
+            .for_each(|output| output.draw(painter, scaling, area));
+
+        self.components.iter()
+            .for_each(|component| component.draw(painter, scaling, area));
     }
 }

@@ -1,80 +1,167 @@
-use eframe::{epaint::{Pos2, Color32, Stroke, Vec2}, egui::{Painter, Rect}};
+use eframe::{epaint::{Pos2, Color32, Stroke, Vec2, FontId}, egui::{Painter, Rect}, emath::Align2};
+use simulator::function::Function;
 
-pub trait Position {
-    fn set_position(&mut self, position: Pos2);
-    fn get_position(&self) -> Pos2;
+const STROKE_WIDTH: f32 = 5.0;
+const STROKE_COLOR: Color32 = Color32::WHITE;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Position {
+    x: i32,
+    y: i32,
 }
 
-pub trait Draw {
-    fn draw(&self, painter: &Painter, area: Rect);
+impl Position {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self {
+            x,
+            y,
+        }
+    }
 }
 
-pub struct EditorComponent {
-    position: Pos2,
-}
+impl RealPosition for Position {
+    fn set_position(&mut self, position: Position) {
+        *self = position
+    }
 
-pub struct EditorLine {
-    start: Pos2,
-    end: Pos2,
+    fn get_position(&self) -> Position {
+        *self
+    }
 }
-
 
 pub struct EditorInput {
-    position: Pos2,
+    position: Position,
 }
 
 impl EditorInput {
-    pub fn new(position: Pos2) -> Self {
-        Self { position }
+    pub fn new(position: Position) -> Self {
+        Self {
+            position,
+        }
+    }
+}
+
+impl RealPosition for EditorInput {
+    fn set_position(&mut self, position: Position) {
+        self.position = position;
     }
 
-    const STROKE_COLOR: Color32 = Color32::WHITE;
-    const STROKE_WIDTH: f32 = 5.0;
-    const SHAPE_SIZE: f32 = 40.0;
+    fn get_position(&self) -> Position {
+        self.position
+    }
 }
 
 impl Draw for EditorInput {
-    fn draw(&self, painter: &Painter, _area: Rect) {
-        let shape_stroke = Stroke::new(Self::STROKE_WIDTH, Self::STROKE_COLOR);
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
+        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
+        let real_position = Self::get_real_position(&self, scaling, area);
 
-        painter.rect_stroke(Rect::from_center_size(self.position, Vec2::splat(Self::SHAPE_SIZE)), 0.0, shape_stroke);
-        painter.circle_stroke(self.position, Self::SHAPE_SIZE / 3.0, shape_stroke);
-        painter.circle_filled(self.position + Vec2::new(Self::SHAPE_SIZE / 2.0, 0.0), Self::STROKE_WIDTH, Color32::RED);
+        painter.rect_stroke(Rect::from_center_size(real_position, Vec2::splat(scaling * 2.0)), 0.0, shape_stroke);
+        painter.circle_stroke(real_position, (scaling * 2.0) / 3.0, shape_stroke);
+        painter.circle_filled(real_position + Vec2::new(scaling, 0.0), STROKE_WIDTH, Color32::RED);
     }
 }
 
 pub struct EditorOutput {
-    position: Pos2,
+    position: Position,
 }
 
 impl EditorOutput {
-    pub fn new(position: Pos2) -> Self {
-        Self { position }
+    pub fn new(position: Position) -> Self {
+        Self {
+            position,
+        }
+    }
+}
+
+impl RealPosition for EditorOutput {
+    fn set_position(&mut self, position: Position) {
+        self.position = position;
     }
 
-    const STROKE_COLOR: Color32 = Color32::WHITE;
-    const STROKE_WIDTH: f32 = 5.0;
-    const SHAPE_SIZE: f32 = 40.0;
+    fn get_position(&self) -> Position {
+        self.position
+    }
 }
 
 impl Draw for EditorOutput {
-    fn draw(&self, painter: &Painter, _area: Rect) {
-        let shape_stroke = Stroke::new(Self::STROKE_WIDTH, Self::STROKE_COLOR);
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
+        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
+        let real_position = Self::get_real_position(&self, scaling, area);
 
-        painter.circle_stroke(self.position, Self::SHAPE_SIZE / 2.0, shape_stroke);
-        painter.circle_stroke(self.position, Self::SHAPE_SIZE / 3.0, shape_stroke);
-        painter.circle_filled(self.position - Vec2::new(Self::SHAPE_SIZE / 2.0, 0.0), Self::STROKE_WIDTH, Color32::RED);
+        painter.circle_stroke(real_position, scaling, shape_stroke);
+        painter.circle_stroke(real_position, (scaling * 2.0) / 3.0, shape_stroke);
+        painter.circle_filled(real_position - Vec2::new(scaling, 0.0), STROKE_WIDTH, Color32::RED);
     }
+}
+
+
+pub struct EditorComponent {
+    position: Position,
+    function: Function,
 }
 
 impl EditorComponent {
-    pub fn new(position: Pos2) -> Self {
-        Self { position }
+    pub fn new(position: Position, function: Function) -> Self {
+        Self {
+            position,
+            function,
+        }
     }
 }
 
-impl EditorLine {
-    pub fn new(start: Pos2, end: Pos2) -> Self {
-        Self { start, end }
+impl RealPosition for EditorComponent {
+    fn set_position(&mut self, position: Position) {
+        self.position = position;
     }
+
+    fn get_position(&self) -> Position {
+        self.position
+    }
+}
+
+impl Draw for EditorComponent {
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
+        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
+        let real_position = Self::get_real_position(&self, scaling, area);
+
+        painter.rect_stroke(Rect::from_center_size(real_position, Vec2::splat(scaling * 2.0)), 0.0, shape_stroke);
+        painter.text(real_position, Align2::CENTER_CENTER, "comp", FontId::monospace(12.0), Color32::WHITE);
+    }
+}
+
+pub struct EditorLine {
+    start: Position,
+    end: Position,
+}
+
+impl EditorLine {
+    pub fn new(start: Position, end: Position) -> Self {
+        Self {
+            start,
+            end,
+        }
+    }
+}
+
+impl Draw for EditorLine {
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
+        let real_start = self.start.get_real_position(scaling, area);
+        let real_end = self.end.get_real_position(scaling, area);
+
+        painter.line_segment([real_start, real_end], Stroke::new(STROKE_WIDTH, Color32::GREEN));
+    }
+}
+
+pub trait RealPosition {
+    fn set_position(&mut self, position: Position);
+    fn get_position(&self) -> Position;
+
+    fn get_real_position(&self, scaling: f32, area: Rect) -> Pos2 {
+        Pos2::new(self.get_position().x as f32, self.get_position().y as f32) * scaling + area.left_top().to_vec2()
+    }
+}
+
+pub trait Draw {
+    fn draw(&self, painter: &Painter, scaling: f32, area: Rect);
 }
