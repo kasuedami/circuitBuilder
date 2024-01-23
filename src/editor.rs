@@ -10,6 +10,7 @@ pub struct Editor {
     gird_spacing: f32,
     area: Rect,
     circuit: EditorCircuit,
+    pressed: bool, // TODO: turn into option to handle element selection
 }
 
 #[derive(Default)]
@@ -29,7 +30,7 @@ impl Editor {
         CentralPanel::default().show(ctx, |ui| {
             let painter = ui.painter_at(self.area);
 
-            ctx.input(|input| self.circuit.update(self.area, input));
+            ctx.input(|input| self.handle_inputs(input));
 
             self.grid(&painter);
             self.circuit.draw(&painter, self.gird_spacing, self.area);
@@ -53,6 +54,31 @@ impl Editor {
                 }
             });
         });
+    }
+
+    fn handle_inputs(&mut self, input: &InputState) {
+        if let Some(last_position) = input.pointer.latest_pos() {
+            if !self.area.contains(last_position) {
+                return;
+            }
+
+            if input.pointer.primary_pressed() {
+                println!("pressed");
+
+                // TODO: check not on element
+                self.pressed = true;
+            }
+
+            if input.pointer.primary_released() {
+                println!("released");
+                self.pressed = false;
+            }
+
+            if self.pressed {
+                self.offset += input.pointer.delta();
+                dbg!("{}", self.offset);
+            }
+        }
     }
 
     fn grid(&self, painter: &Painter) {
@@ -87,19 +113,12 @@ impl Default for Editor {
             gird_spacing: 20.0,
             area: Rect::ZERO,
             circuit: Default::default(),
+            pressed: false,
         }
     }
 }
 
 impl EditorCircuit {
-    fn update(&mut self, area: Rect, input: &InputState) {
-        if let Some(last_position) = input.pointer.latest_pos() {
-            if !area.contains(last_position) {
-                return;
-            }
-        }
-    }
-
     fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
         self.lines.iter()
             .for_each(|line| line.draw(painter, scaling, area));
