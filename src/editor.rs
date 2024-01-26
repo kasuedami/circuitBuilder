@@ -1,24 +1,18 @@
-use eframe::{epaint::{Rect, Stroke, Color32, Vec2, Pos2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
+use eframe::{epaint::{Color32, Pos2, Rect, Stroke, Vec2}, egui::{self, CentralPanel, Grid, InputState, Layout, Painter}};
 use simulator::function::Function;
 
-use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw, Position};
+use self::{elements::{position, Draw, EditorComponent, EditorInput, EditorLine, EditorOutput, Position}, painter::EditorPainter};
 
 mod elements;
+mod painter;
 
 pub struct Editor {
-    offset: Pos2,
+    offset: Vec2,
     gird_spacing: f32,
     area: Rect,
     circuit: EditorCircuit,
     pressed: bool, // TODO: turn into option to handle element selection
-}
-
-#[derive(Default)]
-struct EditorCircuit {
-    inputs: Vec<EditorInput>,
-    outputs: Vec<EditorOutput>,
-    components: Vec<EditorComponent>,
-    lines: Vec<EditorLine>,
+    background: Background,
 }
 
 impl Editor {
@@ -28,12 +22,17 @@ impl Editor {
 
     pub fn update(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            let painter = ui.painter_at(self.area);
+            let editor_painter = EditorPainter::frow_ui_with_offset(ui, self.offset);
+            editor_painter.background(self.background);
 
-            ctx.input(|input| self.handle_inputs(input));
+            editor_painter.circle_filled(position(0, 0), 1.0, Color32::WHITE);
 
-            self.grid(&painter);
-            self.circuit.draw(&painter, self.gird_spacing, self.area);
+            //let painter = ui.painter_at(self.area);
+
+            //ctx.input(|input| self.handle_inputs(input));
+
+            //self.grid(&painter);
+            //self.circuit.draw(&painter, self.gird_spacing, self.area);
 
             ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
 
@@ -109,14 +108,24 @@ impl Editor {
 impl Default for Editor {
     fn default() -> Self {
         Self {
-            offset: Pos2::ZERO,
+            offset: Vec2::ZERO,
             gird_spacing: 20.0,
             area: Rect::ZERO,
             circuit: Default::default(),
             pressed: false,
+            background: Background::Dots(1),
         }
     }
 }
+
+#[derive(Default)]
+struct EditorCircuit {
+    inputs: Vec<EditorInput>,
+    outputs: Vec<EditorOutput>,
+    components: Vec<EditorComponent>,
+    lines: Vec<EditorLine>,
+}
+
 
 impl EditorCircuit {
     fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
@@ -132,4 +141,11 @@ impl EditorCircuit {
         self.components.iter()
             .for_each(|component| component.draw(painter, scaling, area));
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Background {
+    None,
+    Grid(i32),
+    Dots(i32),
 }

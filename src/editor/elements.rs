@@ -4,6 +4,10 @@ use simulator::function::Function;
 const STROKE_WIDTH: f32 = 5.0;
 const STROKE_COLOR: Color32 = Color32::WHITE;
 
+pub fn position(x: i32, y: i32) -> Position {
+    Position::new(x, y)
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Position {
     x: i32,
