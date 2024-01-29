@@ -1,4 +1,4 @@
-use eframe::{epaint::{Pos2, Color32, Stroke, Vec2, FontId}, egui::{Painter, Rect}, emath::Align2};
+use eframe::{epaint::{Color32, FontId, Pos2, Shape, Stroke, Vec2}, egui::{Painter, Rect}, emath::Align2};
 use simulator::function::Function;
 
 const STROKE_WIDTH: f32 = 5.0;
@@ -19,46 +19,19 @@ impl Position {
     }
 }
 
-impl RealPosition for Position {
-    fn set_position(&mut self, position: Position) {
-        *self = position
-    }
-
-    fn get_position(&self) -> Position {
-        *self
-    }
-}
-
 pub struct EditorInput {
-    position: Position,
+    pub position: Pos2,
 }
 
 impl EditorInput {
-    pub fn new(position: Position) -> Self {
+    pub fn new(position: Pos2) -> Self {
         Self {
             position,
         }
     }
-}
 
-impl RealPosition for EditorInput {
-    fn set_position(&mut self, position: Position) {
-        self.position = position;
-    }
-
-    fn get_position(&self) -> Position {
-        self.position
-    }
-}
-
-impl Draw for EditorInput {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
-        let real_position = Self::get_real_position(&self, scaling, area);
-
-        painter.rect_stroke(Rect::from_center_size(real_position, Vec2::splat(scaling * 2.0)), 0.0, shape_stroke);
-        painter.circle_stroke(real_position, (scaling * 2.0) / 3.0, shape_stroke);
-        painter.circle_filled(real_position + Vec2::new(scaling, 0.0), STROKE_WIDTH, Color32::RED);
+    pub fn shape(&self) -> Shape {
+        todo!()
     }
 }
 
@@ -141,15 +114,6 @@ impl EditorLine {
             start,
             end,
         }
-    }
-}
-
-impl Draw for EditorLine {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        let real_start = self.start.get_real_position(scaling, area);
-        let real_end = self.end.get_real_position(scaling, area);
-
-        painter.line_segment([real_start, real_end], Stroke::new(STROKE_WIDTH, Color32::GREEN));
     }
 }
 

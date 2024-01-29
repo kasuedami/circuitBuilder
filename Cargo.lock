@@ -595,6 +595,7 @@ version = "0.1.0"
 dependencies = [
  "circuitsim",
  "eframe",
+ "emath 0.25.0",
  "rfd",
  "serde",
  "serde_json",
@@ -927,6 +928,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "emath"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ee58355767587db7ba3738930d93cad3052cd834c2b48b9ef6ef26fe4823b7e"
+
+[[package]]
 name = "enumflags2"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -957,7 +964,7 @@ dependencies = [
  "ahash",
  "bytemuck",
  "ecolor",
- "emath",
+ "emath 0.24.1",
  "log",
  "nohash-hasher",
  "parking_lot",

@@ -11,3 +11,4 @@ circuitsim = { git = "https://github.com/kasuedami/circuitsim.git", rev = "43f89
 rfd = "0.12.1"
 serde = "1.0.195"
 serde_json = "1.0.111"
+emath = "0.25.0"

@@ -6,7 +6,7 @@ use simulator::{Circuit, simulator::Simulator, function::Function};
 
 mod editor;
 
-const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3}"#;
+const EXAMPLE: &str = r#"{"inputs":[{"value_index":0},{"value_index":1}],"outputs":[{"value_index":2}],"components":[{"input_value_indices":[0,1],"output_value_indices":[2],"owned_value_indices":[],"function":"And"}],"value_list_len":3,"owned_value_list_len":0}"#;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {

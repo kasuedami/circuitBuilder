@@ -1,4 +1,5 @@
-use eframe::{epaint::{Rect, Stroke, Color32, Vec2, Pos2}, egui::{Painter, self, CentralPanel, Layout, InputState}};
+use eframe::{epaint::{vec2, Color32, Pos2, Rect, Stroke, Vec2}, egui::{self, CentralPanel, InputState, Layout, Painter, Response, Sense}};
+use egui::*;
 use simulator::function::Function;
 
 use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw, Position};
@@ -28,31 +29,52 @@ impl Editor {
 
     pub fn update(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            let painter = ui.painter_at(self.area);
 
-            ctx.input(|input| self.handle_inputs(input));
+            if ui.button("Input").clicked() {
+                self.circuit.inputs.push(EditorInput::new(pos2(20.0, 20.0)));
+            }
 
-            self.grid(&painter);
-            self.circuit.draw(&painter, self.gird_spacing, self.area);
+            let (response, painter) =
+                ui.allocate_painter(vec2(ui.available_width(), ui.available_height()), Sense::hover());
 
-            ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
+            let to_screen = emath::RectTransform::from_to(
+                Rect::from_min_size(Pos2::ZERO, response.rect.size()),
+                response.rect
+            );
 
-                if ui.button("Input").clicked() {
-                    self.circuit.inputs.push(EditorInput::new(Position::new(2, 2)));
-                }
+            let input_shapes: Vec<Shape> = self.circuit
+                .inputs
+                .iter_mut()
+                .enumerate()
+                .map(|(i, input)| {
+                    let size = Vec2::splat(20.0);
 
-                if ui.button("Output").clicked() {
-                    self.circuit.outputs.push(EditorOutput::new(Position::new(5, 5)));
-                }
+                    let point_in_screen = to_screen.transform_pos(input.position);
+                    let point_in_rect = Rect::from_center_size(point_in_screen, size);
+                    let point_id = response.id.with(i);
+                    let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
 
-                if ui.button("Component").clicked() {
-                    self.circuit.components.push(EditorComponent::new(Position::new(10, 10), Function::And));
-                }
+                    input.position += point_response.drag_delta();
+                    input.position = to_screen.from().clamp(input.position);
 
-                if ui.button("Line").clicked() {
-                    self.circuit.lines.push(EditorLine::new(Position::new(1, 15), Position::new(15, 15)));
-                }
-            });
+                    let point_in_screen = to_screen.transform_pos(input.position);
+                    let stroke = ui.style().interact(&point_response).fg_stroke;
+
+                    Shape::circle_stroke(point_in_screen, 20.0, stroke)
+                })
+                .collect();
+
+            let positions_in_screen: Vec<Pos2> = self
+                .circuit
+                .inputs
+                .iter()
+                .map(|input| to_screen * input.position)
+                .collect();
+
+            input_shapes.iter()
+                .for_each(|(shape)| {
+                    painter.add(shape.clone());
+                });
         });
     }
 
@@ -120,12 +142,6 @@ impl Default for Editor {
 
 impl EditorCircuit {
     fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        self.lines.iter()
-            .for_each(|line| line.draw(painter, scaling, area));
-
-        self.inputs.iter()
-            .for_each(|input| input.draw(painter, scaling, area));
-
         self.outputs.iter()
             .for_each(|output| output.draw(painter, scaling, area));
 
