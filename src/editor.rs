@@ -1,4 +1,4 @@
-use eframe::{egui::{self, CentralPanel, Sense}, emath::RectTransform, epaint::{vec2, Pos2, Rect, Vec2}};
+use eframe::{egui::{self, CentralPanel, Sense}, epaint::{vec2, Pos2, Rect, Vec2}};
 use egui::*;
 
 use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine};
@@ -6,18 +6,10 @@ use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine};
 mod elements;
 
 pub struct Editor {
-    offset: Pos2,
-    gird_spacing: f32,
-    area: Rect,
     circuit: EditorCircuit,
-    pressed: bool, // TODO: turn into option to handle element selection
 }
 
 impl Editor {
-    pub fn set_area(&mut self, area: Rect) {
-        self.area = area;
-    }
-
     pub fn update(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
 
@@ -105,11 +97,7 @@ impl Editor {
 impl Default for Editor {
     fn default() -> Self {
         Self {
-            offset: Pos2::ZERO,
-            gird_spacing: 20.0,
-            area: Rect::ZERO,
             circuit: Default::default(),
-            pressed: false,
         }
     }
 }

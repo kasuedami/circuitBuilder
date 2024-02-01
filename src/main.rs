@@ -358,7 +358,6 @@ impl CircuitBuilder {
     }
 
     fn editor(&mut self, ctx: &egui::Context) {
-        self.editor.set_area(self.occupied_sides.free_area);
         self.editor.update(ctx);
     }
 }
