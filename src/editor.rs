@@ -32,11 +32,11 @@ impl Editor {
             );
             
             if input_response.clicked() {
-                self.circuit.inputs.push(EditorInput::new(response.rect.center()))
+                self.circuit.inputs.push(EditorInput::new((response.rect.size() / 2.0).to_pos2()))
             }
 
             if component_response.clicked() {
-                self.circuit.components.push(EditorComponent::new(response.rect.center(), Function::And));
+                self.circuit.components.push(EditorComponent::new((response.rect.size() / 2.0).to_pos2(), Function::And));
             }
             
             let connected_lines_start = self.circuit.input_connected_lines_start();
