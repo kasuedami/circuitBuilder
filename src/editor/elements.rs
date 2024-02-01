@@ -1,24 +1,13 @@
-use eframe::{epaint::{vec2, Color32, FontId, Pos2, Shape, Stroke, Vec2}, egui::{Painter, Rect}, emath::{Align2, RectTransform}};
+use eframe::{epaint::{vec2, Color32, Pos2, Shape, Stroke, Vec2}, egui::Rect, emath::RectTransform};
 use simulator::function::Function;
 
-const STROKE_WIDTH: f32 = 5.0;
-const STROKE_COLOR: Color32 = Color32::WHITE;
+pub trait EditorShape {
+    type DraggedInfo;
 
-#[derive(Clone, Copy, Debug)]
-pub struct Position {
-    x: i32,
-    y: i32,
+    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape;
 }
 
-impl Position {
-    pub fn new(x: i32, y: i32) -> Self {
-        Self {
-            x,
-            y,
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct EditorInput {
     pub position: Pos2,
 }
@@ -29,11 +18,15 @@ impl EditorInput {
             position,
         }
     }
+}
 
-    pub fn shape(&self, transform: RectTransform, dragged: bool) -> Shape {
+impl EditorShape for EditorInput {
+    type DraggedInfo = bool;
+
+    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
         
-        let border_stroke = if dragged {
+        let border_stroke = if dragged_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
@@ -47,47 +40,27 @@ impl EditorInput {
     }
 }
 
+#[derive(Debug)]
 pub struct EditorOutput {
-    position: Position,
+    position: Pos2,
 }
 
 impl EditorOutput {
-    pub fn new(position: Position) -> Self {
+    pub fn new(position: Pos2) -> Self {
         Self {
             position,
         }
     }
 }
 
-impl RealPosition for EditorOutput {
-    fn set_position(&mut self, position: Position) {
-        self.position = position;
-    }
-
-    fn get_position(&self) -> Position {
-        self.position
-    }
-}
-
-impl Draw for EditorOutput {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
-        let real_position = Self::get_real_position(&self, scaling, area);
-
-        painter.circle_stroke(real_position, scaling, shape_stroke);
-        painter.circle_stroke(real_position, (scaling * 2.0) / 3.0, shape_stroke);
-        painter.circle_filled(real_position - Vec2::new(scaling, 0.0), STROKE_WIDTH, Color32::RED);
-    }
-}
-
-
+#[derive(Debug)]
 pub struct EditorComponent {
-    position: Position,
-    function: Function,
+    pub position: Pos2,
+    pub function: Function,
 }
 
 impl EditorComponent {
-    pub fn new(position: Position, function: Function) -> Self {
+    pub fn new(position: Pos2, function: Function) -> Self {
         Self {
             position,
             function,
@@ -95,23 +68,24 @@ impl EditorComponent {
     }
 }
 
-impl RealPosition for EditorComponent {
-    fn set_position(&mut self, position: Position) {
-        self.position = position;
-    }
+impl EditorShape for EditorComponent {
+    type DraggedInfo = bool;
 
-    fn get_position(&self) -> Position {
-        self.position
-    }
-}
+    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+        let transformed_position = transform.transform_pos(self.position);
+        
+        let border_stroke = if dragged_info {
+            Stroke::new(4.0, Color32::WHITE)
+        } else {
+            Stroke::new(3.0, Color32::WHITE)
+        };
 
-impl Draw for EditorComponent {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        let shape_stroke = Stroke::new(STROKE_WIDTH, STROKE_COLOR);
-        let real_position = Self::get_real_position(&self, scaling, area);
+        let border = Shape::rect_stroke(Rect::from_center_size(transformed_position, Vec2::splat(60.0)), 0.0, border_stroke);
+        let in_connector0 = Shape::circle_filled(transformed_position + vec2(-30.0, -15.0), 5.0, Color32::RED);
+        let in_connector1 = Shape::circle_filled(transformed_position + vec2(-30.0, 15.0), 5.0, Color32::RED);
+        let out_connector0 = Shape::circle_filled(transformed_position + vec2(30.0, 0.0), 5.0, Color32::RED);
 
-        painter.rect_stroke(Rect::from_center_size(real_position, Vec2::splat(scaling * 2.0)), 0.0, shape_stroke);
-        painter.text(real_position, Align2::CENTER_CENTER, "comp", FontId::monospace(12.0), Color32::WHITE);
+        Shape::Vec(vec![border, in_connector0, in_connector1, out_connector0])
     }
 }
 
@@ -122,21 +96,19 @@ pub struct EditorLine {
 }
 
 impl EditorLine {
-    pub fn new(start: Pos2, end: Pos2) -> Self {
-        Self {
-            start,
-            end,
-        }
-    }
-    
     pub fn from_single_pos(pos: Pos2) -> Self {
         Self {
             start: pos,
             end: pos,
         }
     }
-    
-    pub fn shape(&self, transform: RectTransform, start_dragged: bool, end_dragged: bool) -> Shape {
+}
+
+impl EditorShape for EditorLine {
+    type DraggedInfo = (bool, bool);
+
+    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+        let (start_dragged, end_dragged) = dragged_info;
         let real_start = transform.transform_pos(self.start);
         let real_end = transform.transform_pos(self.end);
 
@@ -156,17 +128,4 @@ impl EditorLine {
             Shape::Vec(vec![start_shape, end_shape, line_shape])
         }
     }
-}
-
-pub trait RealPosition {
-    fn set_position(&mut self, position: Position);
-    fn get_position(&self) -> Position;
-
-    fn get_real_position(&self, scaling: f32, area: Rect) -> Pos2 {
-        Pos2::new(self.get_position().x as f32, self.get_position().y as f32) * scaling + area.left_top().to_vec2()
-    }
-}
-
-pub trait Draw {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect);
 }
