@@ -1,8 +1,7 @@
-use eframe::{epaint::{vec2, Color32, Pos2, Rect, Stroke, Vec2}, egui::{self, CentralPanel, InputState, Layout, Painter, Response, Sense}};
+use eframe::{egui::{self, CentralPanel, Sense}, emath::RectTransform, epaint::{vec2, Pos2, Rect, Vec2}};
 use egui::*;
-use simulator::function::Function;
 
-use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine, Draw, Position};
+use self::elements::{EditorInput, EditorOutput, EditorComponent, EditorLine};
 
 mod elements;
 
@@ -12,14 +11,6 @@ pub struct Editor {
     area: Rect,
     circuit: EditorCircuit,
     pressed: bool, // TODO: turn into option to handle element selection
-}
-
-#[derive(Default)]
-struct EditorCircuit {
-    inputs: Vec<EditorInput>,
-    outputs: Vec<EditorOutput>,
-    components: Vec<EditorComponent>,
-    lines: Vec<EditorLine>,
 }
 
 impl Editor {
@@ -41,90 +32,73 @@ impl Editor {
                 Rect::from_min_size(Pos2::ZERO, response.rect.size()),
                 response.rect
             );
-
+            
+            let connected_lines_start = self.circuit.input_connected_lines_start();
+            let connected_lines_end = self.circuit.input_connected_lines_end();
+                    
             let input_shapes: Vec<Shape> = self.circuit
                 .inputs
                 .iter_mut()
                 .enumerate()
                 .map(|(i, input)| {
-                    let size = Vec2::splat(20.0);
+                    let size = Vec2::splat(40.0);
 
                     let point_in_screen = to_screen.transform_pos(input.position);
                     let point_in_rect = Rect::from_center_size(point_in_screen, size);
-                    let point_id = response.id.with(i);
+                    let point_id = response.id.with("input".to_owned() + &i.to_string());
                     let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
-
+                    
                     input.position += point_response.drag_delta();
                     input.position = to_screen.from().clamp(input.position);
+                    
+                    let connector_position = point_in_screen + Vec2::new(20.0, 0.0);
+                    let connector_rect = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+                    let connector_id = response.id.with("input connector".to_owned() + &i.to_string());
+                    let connector_response = ui.interact(connector_rect, connector_id, Sense::click());
+                    
+                    if connector_response.clicked() {
+                        self.circuit.lines.push(EditorLine::from_single_pos(input.position + vec2(20.0, 0.0)));
+                    }
 
-                    let point_in_screen = to_screen.transform_pos(input.position);
-                    let stroke = ui.style().interact(&point_response).fg_stroke;
-
-                    Shape::circle_stroke(point_in_screen, 20.0, stroke)
+                    input.shape(to_screen, point_response.dragged())
                 })
                 .collect();
 
-            let positions_in_screen: Vec<Pos2> = self
-                .circuit
-                .inputs
-                .iter()
-                .map(|input| to_screen * input.position)
+            self.circuit.input_reconnect_lines_start(connected_lines_start);
+            self.circuit.input_reconnect_lines_end(connected_lines_end);
+            
+            let line_shapes: Vec<Shape> = self.circuit
+                .lines
+                .iter_mut()
+                .enumerate()
+                .map(|(i, line)| {
+                    let size = Vec2::splat(10.0);
+
+                    let start_in_screen = to_screen.transform_pos(line.start);
+                    let start_rect = Rect::from_center_size(start_in_screen, size);
+                    let start_id = response.id.with("line start".to_string() + &i.to_string());
+                    let start_response = ui.interact(start_rect, start_id, Sense::drag());
+                    
+                    line.start += start_response.drag_delta();
+                    line.start = to_screen.from().clamp(line.start);                    
+
+                    let end_in_screen = to_screen.transform_pos(line.end);
+                    let end_rect = Rect::from_center_size(end_in_screen, size);
+                    let end_id = response.id.with("line end".to_string() + &i.to_string());
+                    let end_response = ui.interact(end_rect, end_id, Sense::drag());
+                    
+                    line.end += end_response.drag_delta();
+                    line.end = to_screen.from().clamp(line.end);                    
+                    
+                    line.shape(to_screen, start_response.dragged(), end_response.dragged())
+                })
                 .collect();
 
-            input_shapes.iter()
-                .for_each(|(shape)| {
+            input_shapes.iter().chain(line_shapes.iter())
+                .for_each(|shape| {
                     painter.add(shape.clone());
                 });
         });
-    }
-
-    fn handle_inputs(&mut self, input: &InputState) {
-        if let Some(last_position) = input.pointer.latest_pos() {
-            if !self.area.contains(last_position) {
-                return;
-            }
-
-            if input.pointer.primary_pressed() {
-                println!("pressed");
-
-                // TODO: check not on element
-                self.pressed = true;
-            }
-
-            if input.pointer.primary_released() {
-                println!("released");
-                self.pressed = false;
-            }
-
-            if self.pressed {
-                self.offset += input.pointer.delta();
-                dbg!("{}", self.offset);
-            }
-        }
-    }
-
-    fn grid(&self, painter: &Painter) {
-        let editor_v_start = self.area.top();
-        let editor_v_end = self.area.bottom();
-        let editor_h_start = self.area.left();
-        let editor_h_end = self.area.right();
-
-        let editor_height_range = editor_v_start..=editor_v_end;
-        let editor_width_range = editor_h_start..=editor_h_end;
-
-        let editor_grid_stroke = Stroke::new(2.0, Color32::DARK_GRAY);
-
-        let mut h_line_height = editor_v_start;
-        while h_line_height < editor_v_end {
-            painter.hline(editor_width_range.clone(), h_line_height, editor_grid_stroke);
-            h_line_height += self.gird_spacing;
-        }
-
-        let mut v_line_height = editor_h_start;
-        while v_line_height < editor_h_end {
-            painter.vline(v_line_height, editor_height_range.clone(), editor_grid_stroke);
-            v_line_height += self.gird_spacing;
-        }
     }
 }
 
@@ -140,12 +114,82 @@ impl Default for Editor {
     }
 }
 
-impl EditorCircuit {
-    fn draw(&self, painter: &Painter, scaling: f32, area: Rect) {
-        self.outputs.iter()
-            .for_each(|output| output.draw(painter, scaling, area));
+#[derive(Default)]
+struct EditorCircuit {
+    inputs: Vec<EditorInput>,
+    outputs: Vec<EditorOutput>,
+    components: Vec<EditorComponent>,
+    lines: Vec<EditorLine>,
+}
 
-        self.components.iter()
-            .for_each(|component| component.draw(painter, scaling, area));
+impl EditorCircuit {
+    fn input_connected_lines_start(&self) -> Vec<Vec<usize>> {
+        self.inputs.iter().enumerate().map(|(input_index, _)| {
+
+            let connector_position = self.inputs[input_index].position + Vec2::new(20.0, 0.0);
+            let connector_area = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+
+            self.lines
+                .iter()
+                .enumerate()
+                .filter_map(|(i, line)| {
+                    if connector_area.contains(line.start) {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .collect()
+    }
+
+    fn input_connected_lines_end(&self) -> Vec<Vec<usize>> {
+        self.inputs.iter().enumerate().map(|(input_index, _)| {
+
+            let connector_position = self.inputs[input_index].position + Vec2::new(20.0, 0.0);
+            let connector_area = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+
+            self.lines
+                .iter()
+                .enumerate()
+                .filter_map(|(i, line)| {
+                    if connector_area.contains(line.end) {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .collect()
+    }
+    
+    fn input_reconnect_lines_start(&mut self, connection_list: Vec<Vec<usize>>) {
+        connection_list.iter()
+            .enumerate()
+            .for_each(|(input_index, line_indices)| {
+                let connector_position = self.inputs[input_index].position + Vec2::new(20.0, 0.0);
+
+                line_indices.iter()
+                    .for_each(|&line_index| {
+                        self.lines[line_index].start = connector_position;
+                    })
+
+            })
+    }
+
+    fn input_reconnect_lines_end(&mut self, connection_list: Vec<Vec<usize>>) {
+        connection_list.iter()
+            .enumerate()
+            .for_each(|(input_index, line_indices)| {
+                let connector_position = self.inputs[input_index].position + Vec2::new(20.0, 0.0);
+
+                line_indices.iter()
+                    .for_each(|&line_index| {
+                        self.lines[line_index].end = connector_position;
+                    })
+
+            })
     }
 }

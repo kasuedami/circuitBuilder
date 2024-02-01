@@ -1,4 +1,4 @@
-use eframe::{epaint::{Color32, FontId, Pos2, Shape, Stroke, Vec2}, egui::{Painter, Rect}, emath::Align2};
+use eframe::{epaint::{vec2, Color32, FontId, Pos2, Shape, Stroke, Vec2}, egui::{Painter, Rect}, emath::{Align2, RectTransform}};
 use simulator::function::Function;
 
 const STROKE_WIDTH: f32 = 5.0;
@@ -30,8 +30,20 @@ impl EditorInput {
         }
     }
 
-    pub fn shape(&self) -> Shape {
-        todo!()
+    pub fn shape(&self, transform: RectTransform, dragged: bool) -> Shape {
+        let transformed_position = transform.transform_pos(self.position);
+        
+        let border_stroke = if dragged {
+            Stroke::new(4.0, Color32::WHITE)
+        } else {
+            Stroke::new(3.0, Color32::WHITE)
+        };
+
+        let border = Shape::rect_stroke(Rect::from_center_size(transformed_position, Vec2::splat(40.0)), 0.0, border_stroke);
+        let inner = Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
+        let connector = Shape::circle_filled(transformed_position + vec2(20.0, 0.0), 5.0, Color32::RED);
+
+        Shape::Vec(vec![border, inner, connector])
     }
 }
 
@@ -103,16 +115,45 @@ impl Draw for EditorComponent {
     }
 }
 
+#[derive(Debug)]
 pub struct EditorLine {
-    start: Position,
-    end: Position,
+    pub start: Pos2,
+    pub end: Pos2,
 }
 
 impl EditorLine {
-    pub fn new(start: Position, end: Position) -> Self {
+    pub fn new(start: Pos2, end: Pos2) -> Self {
         Self {
             start,
             end,
+        }
+    }
+    
+    pub fn from_single_pos(pos: Pos2) -> Self {
+        Self {
+            start: pos,
+            end: pos,
+        }
+    }
+    
+    pub fn shape(&self, transform: RectTransform, start_dragged: bool, end_dragged: bool) -> Shape {
+        let real_start = transform.transform_pos(self.start);
+        let real_end = transform.transform_pos(self.end);
+
+        let start_shape = Shape::circle_filled(real_start, 5.0, Color32::GREEN);
+        let end_shape = Shape::circle_filled(real_end, 5.0, Color32::GREEN);
+        let line_shape = Shape::line(vec![real_start, real_end], Stroke::new(5.0, Color32::GREEN));
+        
+        if start_dragged {
+            let hover_shape = Shape::circle_stroke(real_start, 7.0, Stroke::new(1.0, Color32::GREEN));
+
+            Shape::Vec(vec![start_shape, end_shape, line_shape, hover_shape])
+        } else if end_dragged {
+            let hover_shape = Shape::circle_stroke(real_end, 7.0, Stroke::new(1.0, Color32::GREEN));
+
+            Shape::Vec(vec![start_shape, end_shape, line_shape, hover_shape])
+        } else {
+            Shape::Vec(vec![start_shape, end_shape, line_shape])
         }
     }
 }
