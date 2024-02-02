@@ -17,11 +17,12 @@ impl Editor {
             let button_responses = ui.horizontal_top(|ui| {
                 let input_response = ui.button("Input");
                 let component_response = ui.button("Component");
+                let output_response = ui.button("Output");
                 
-                (input_response, component_response)
+                (input_response, component_response, output_response)
             });
             
-            let (input_response, component_response) = button_responses.inner;
+            let (input_response, component_response, output_response) = button_responses.inner;
 
             let (response, painter) =
                 ui.allocate_painter(vec2(ui.available_width(), ui.available_height()), Sense::hover());
@@ -37,6 +38,10 @@ impl Editor {
 
             if component_response.clicked() {
                 self.circuit.components.push(EditorComponent::new((response.rect.size() / 2.0).to_pos2(), Function::And));
+            }
+
+            if output_response.clicked() {
+                self.circuit.outputs.push(EditorOutput::new((response.rect.size() / 2.0).to_pos2()));
             }
             
             let connected_lines_start = self.circuit.input_connected_lines_start();
@@ -88,6 +93,25 @@ impl Editor {
                     component.get_shape(to_screen, point_response.dragged())
                 })
                 .collect();
+
+            let output_shapes: Vec<Shape> = self.circuit
+                .outputs
+                .iter_mut()
+                .enumerate()
+                .map(|(i, output)| {
+                    let size = Vec2::splat(60.0);
+
+                    let point_in_screen = to_screen.transform_pos(output.position);
+                    let point_in_rect = Rect::from_center_size(point_in_screen, size);
+                    let point_id = response.id.with("output".to_owned() + &i.to_string());
+                    let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
+                    
+                    output.position += point_response.drag_delta();
+                    output.position = to_screen.from().clamp(output.position);
+                    
+                    output.get_shape(to_screen, point_response.dragged())
+                })
+                .collect();
             
             let mut dragged_line = None;
             let line_shapes: Vec<Shape> = self.circuit
@@ -130,6 +154,7 @@ impl Editor {
 
             input_shapes.iter()
                 .chain(component_shapes.iter())
+                .chain(output_shapes.iter())
                 .chain(line_shapes.iter())
                 .for_each(|shape| {
                     painter.add(shape.clone());

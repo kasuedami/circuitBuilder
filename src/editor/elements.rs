@@ -42,7 +42,7 @@ impl EditorShape for EditorInput {
 
 #[derive(Debug)]
 pub struct EditorOutput {
-    position: Pos2,
+    pub position: Pos2,
 }
 
 impl EditorOutput {
@@ -50,6 +50,26 @@ impl EditorOutput {
         Self {
             position,
         }
+    }
+}
+
+impl EditorShape for EditorOutput {
+    type DraggedInfo = bool;
+
+    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+        let transformed_position = transform.transform_pos(self.position);
+        
+        let border_stroke = if dragged_info {
+            Stroke::new(4.0, Color32::WHITE)
+        } else {
+            Stroke::new(3.0, Color32::WHITE)
+        };
+
+        let border = Shape::circle_stroke(transformed_position, 20.0, border_stroke);
+        let inner = Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
+        let connector = Shape::circle_filled(transformed_position + vec2(-20.0, 0.0), 5.0, Color32::RED);
+
+        Shape::Vec(vec![border, inner, connector])
     }
 }
 
