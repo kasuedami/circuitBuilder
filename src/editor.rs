@@ -1,12 +1,13 @@
 use eframe::{egui::{self, CentralPanel, Sense}, epaint::{vec2, Pos2, Rect, Vec2}};
 use egui::*;
-use simulator::{element::Input, function::Function};
+use simulator::function::Function;
 
 use self::{connection::{Connection, Connections, Element, LinePoint, LinePointIndex}, elements::{EditorComponent, EditorInput, EditorLine, EditorOutput, EditorShape, CONNECTION_RADIUS}};
 
 mod connection;
 mod elements;
 
+#[derive(Default)]
 pub struct Editor {
     circuit: EditorCircuit,
 }
@@ -169,7 +170,7 @@ impl Editor {
                 .collect();
             
             let mut move_started = None;
-            let mut moved_line = None;
+            let mut released_line = None;
 
             let line_shapes: Vec<Shape> = self.circuit
                 .lines
@@ -185,14 +186,15 @@ impl Editor {
                         let start_response = ui.interact(start_rect, start_id, Sense::drag());
                         
                         if start_response.drag_started() {
-                            move_started = Some(LinePointIndex { index: i, point: LinePoint::Start })
+                            move_started = Some(LinePointIndex { index: i, point: LinePoint::Start });
                         }
                         
                         if start_response.dragged() {
                             line.start += start_response.drag_delta();
                             line.start = to_screen.from().clamp(line.start);
-                            
-                            moved_line = Some(i);
+
+                        } else if start_response.drag_released() {
+                            released_line = Some(LinePointIndex { index: i, point: LinePoint::Start });
                         }
                         
                         start_response.dragged()
@@ -212,7 +214,8 @@ impl Editor {
                             line.end += end_response.drag_delta();
                             line.end = to_screen.from().clamp(line.end);
 
-                            moved_line = Some(i);                        
+                        } else if end_response.drag_released() {
+                            released_line = Some(LinePointIndex { index: i, point: LinePoint::End });
                         }
                         
                         end_response.dragged()
@@ -226,6 +229,28 @@ impl Editor {
                 self.circuit.connections.remove_for(move_started);
             }
             
+            if let Some(released_line) = released_line {
+                let connection_position = match released_line.point {
+                    LinePoint::Start => self.circuit.lines[released_line.index].start,
+                    LinePoint::End => self.circuit.lines[released_line.index].end,
+                };
+
+                self.circuit
+                    .inputs
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, input)| {
+                        let input_connection_position = input.position + vec2(20.0, 0.0);
+                        
+                        if connection_position.distance(input_connection_position) < CONNECTION_RADIUS {
+                            let connection = Connection { element: Element::Input, index: i };
+                            self.circuit.connections.insert_connection(released_line, connection);
+                        }
+                    });
+                
+                self.circuit.apply_line_connection(released_line);
+            }
+            
             input_shapes.iter()
                 .chain(component_shapes.iter())
                 .chain(output_shapes.iter())
@@ -234,14 +259,6 @@ impl Editor {
                     painter.add(shape.clone());
                 });
         });
-    }
-}
-
-impl Default for Editor {
-    fn default() -> Self {
-        Self {
-            circuit: Default::default(),
-        }
     }
 }
 
@@ -271,5 +288,22 @@ impl EditorCircuit {
                     LinePoint::End => self.lines[line_point_index.index].end = connection_position,
                 }
             });
+    }
+    
+    fn apply_line_connection(&mut self, line_point_index: LinePointIndex) {
+        if let Some(connection) = self.connections.connection_for_line_point_index(line_point_index) {
+            
+            let connection_position = match connection.element {
+                Element::Input => self.inputs[connection.index].position + vec2(20.0, 0.0),
+                Element::Output => todo!(),
+                Element::Component(_) => todo!(),
+                Element::Line(_) => todo!(),
+            };
+
+            match line_point_index.point {
+                LinePoint::Start => self.lines[line_point_index.index].start = connection_position,
+                LinePoint::End => self.lines[line_point_index.index].end = connection_position,
+            }
+        }
     }
 }
