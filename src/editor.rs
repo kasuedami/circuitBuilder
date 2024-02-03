@@ -45,9 +45,6 @@ impl Editor {
                 self.circuit.outputs.push(EditorOutput::new((response.rect.size() / 2.0).to_pos2()));
             }
             
-            //let connected_lines_start = self.circuit.input_connected_lines_start();
-            //let connected_lines_end = self.circuit.input_connected_lines_end();
-            
             let mut moved_input = None;
             let mut released_input = None;
 
@@ -204,9 +201,6 @@ impl Editor {
                     line.get_shape(to_screen, (start_response.dragged(), end_response.dragged()))
                 })
                 .collect();
-                
-            //self.circuit.input_reconnect_lines_start(connected_lines_start, dragged_line);
-            //self.circuit.input_reconnect_lines_end(connected_lines_end, dragged_line);
 
             input_shapes.iter()
                 .chain(component_shapes.iter())
