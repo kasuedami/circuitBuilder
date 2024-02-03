@@ -117,6 +117,8 @@ impl Editor {
 
                         }
                     });
+
+                self.circuit.apply_input_connections(released_input);
             };
 
             let component_shapes: Vec<Shape> = self.circuit
