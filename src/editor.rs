@@ -2,8 +2,9 @@ use eframe::{egui::{self, CentralPanel, Sense}, epaint::{vec2, Pos2, Rect, Vec2}
 use egui::*;
 use simulator::function::Function;
 
-use self::elements::{EditorComponent, EditorInput, EditorLine, EditorOutput, EditorShape};
+use self::{connection::{Connection, Connections}, elements::{EditorComponent, EditorInput, EditorLine, EditorOutput, EditorShape}};
 
+mod connection;
 mod elements;
 
 pub struct Editor {
@@ -46,7 +47,8 @@ impl Editor {
             
             let connected_lines_start = self.circuit.input_connected_lines_start();
             let connected_lines_end = self.circuit.input_connected_lines_end();
-                    
+            
+            let mut released_input = None;
             let input_shapes: Vec<Shape> = self.circuit
                 .inputs
                 .iter_mut()
@@ -62,6 +64,10 @@ impl Editor {
                     input.position += point_response.drag_delta();
                     input.position = to_screen.from().clamp(input.position);
                     
+                    if point_response.drag_released() {
+                        released_input = Some(i);
+                    }
+                    
                     let connector_position = point_in_screen + Vec2::new(20.0, 0.0);
                     let connector_rect = Rect::from_center_size(connector_position, Vec2::splat(10.0));
                     let connector_id = response.id.with("input connector".to_owned() + &i.to_string());
@@ -74,6 +80,8 @@ impl Editor {
                     input.get_shape(to_screen, point_response.dragged())
                 })
                 .collect();
+            
+            // TODO: check if released_input has formed connections
             
             let component_shapes: Vec<Shape> = self.circuit
                 .components
@@ -108,6 +116,15 @@ impl Editor {
                     
                     output.position += point_response.drag_delta();
                     output.position = to_screen.from().clamp(output.position);
+
+                    let connector_position = point_in_screen + Vec2::new(-20.0, 0.0);
+                    let connector_rect = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+                    let connector_id = response.id.with("output connector".to_owned() + &i.to_string());
+                    let connector_response = ui.interact(connector_rect, connector_id, Sense::click());
+                    
+                    if connector_response.clicked() {
+                        self.circuit.lines.push(EditorLine::from_single_pos(output.position + vec2(-20.0, 0.0)));
+                    }
                     
                     output.get_shape(to_screen, point_response.dragged())
                 })
@@ -177,6 +194,7 @@ struct EditorCircuit {
     outputs: Vec<EditorOutput>,
     components: Vec<EditorComponent>,
     lines: Vec<EditorLine>,
+    connections: Connections,
 }
 
 impl EditorCircuit {
