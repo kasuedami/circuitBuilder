@@ -166,7 +166,9 @@ impl Editor {
                 })
                 .collect();
             
-            let mut dragged_line = None;
+            let mut move_started = None;
+            let mut moved_line = None;
+
             let line_shapes: Vec<Shape> = self.circuit
                 .lines
                 .iter_mut()
@@ -174,34 +176,54 @@ impl Editor {
                 .map(|(i, line)| {
                     let size = Vec2::splat(10.0);
 
-                    let start_in_screen = to_screen.transform_pos(line.start);
-                    let start_rect = Rect::from_center_size(start_in_screen, size);
-                    let start_id = response.id.with("line start".to_string() + &i.to_string());
-                    let start_response = ui.interact(start_rect, start_id, Sense::drag());
-                    
-                    if start_response.dragged() {
-                        line.start += start_response.drag_delta();
-                        line.start = to_screen.from().clamp(line.start);
+                    let start_dragged = {
+                        let start_in_screen = to_screen.transform_pos(line.start);
+                        let start_rect = Rect::from_center_size(start_in_screen, size);
+                        let start_id = response.id.with("line start".to_string() + &i.to_string());
+                        let start_response = ui.interact(start_rect, start_id, Sense::drag());
                         
-                        dragged_line = Some(i);
-                    }
+                        if start_response.drag_started() {
+                            move_started = Some(LinePointIndex { index: i, point: LinePoint::Start })
+                        }
+                        
+                        if start_response.dragged() {
+                            line.start += start_response.drag_delta();
+                            line.start = to_screen.from().clamp(line.start);
+                            
+                            moved_line = Some(i);
+                        }
+                        
+                        start_response.dragged()
+                    };
                     
-                    let end_in_screen = to_screen.transform_pos(line.end);
-                    let end_rect = Rect::from_center_size(end_in_screen, size);
-                    let end_id = response.id.with("line end".to_string() + &i.to_string());
-                    let end_response = ui.interact(end_rect, end_id, Sense::drag());
-                    
-                    if end_response.dragged() {
-                        line.end += end_response.drag_delta();
-                        line.end = to_screen.from().clamp(line.end);
+                    let end_dragged = {
+                        let end_in_screen = to_screen.transform_pos(line.end);
+                        let end_rect = Rect::from_center_size(end_in_screen, size);
+                        let end_id = response.id.with("line end".to_string() + &i.to_string());
+                        let end_response = ui.interact(end_rect, end_id, Sense::drag());
+                        
+                        if end_response.drag_started() {
+                            move_started = Some(LinePointIndex { index: i, point: LinePoint::End })
+                        }
 
-                        dragged_line = Some(i);                        
-                    }
+                        if end_response.dragged() {
+                            line.end += end_response.drag_delta();
+                            line.end = to_screen.from().clamp(line.end);
+
+                            moved_line = Some(i);                        
+                        }
+                        
+                        end_response.dragged()
+                    };
                     
-                    line.get_shape(to_screen, (start_response.dragged(), end_response.dragged()))
+                    line.get_shape(to_screen, (start_dragged, end_dragged))
                 })
                 .collect();
-
+            
+            if let Some(move_started) = move_started {
+                self.circuit.connections.remove_for(move_started);
+            }
+            
             input_shapes.iter()
                 .chain(component_shapes.iter())
                 .chain(output_shapes.iter())
