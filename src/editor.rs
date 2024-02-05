@@ -258,32 +258,7 @@ impl Editor {
             }
 
             if let Some(released_line) = released_line {
-                let connection_position = match released_line.point {
-                    LinePoint::Start => self.circuit.lines[released_line.index].start,
-                    LinePoint::End => self.circuit.lines[released_line.index].end,
-                };
-
-                self.circuit
-                    .inputs
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, input)| {
-                        let input_connection_position = input.position + vec2(20.0, 0.0);
-
-                        if connection_position.distance(input_connection_position)
-                            < CONNECTION_RADIUS
-                        {
-                            let connection = Connection {
-                                element: Element::Input,
-                                index: i,
-                            };
-                            self.circuit
-                                .connections
-                                .insert_connection(released_line, connection);
-                        }
-                    });
-
-                self.circuit.apply_line_connection(released_line);
+                self.circuit.make_line_connection(released_line);
             }
 
             input_shapes
@@ -357,6 +332,28 @@ impl EditorCircuit {
 }
 
 impl EditorCircuit {
+    fn make_line_connection(&mut self, line_point_index: LinePointIndex) {
+        let connection_position = match line_point_index.point {
+            LinePoint::Start => self.lines[line_point_index.index].start,
+            LinePoint::End => self.lines[line_point_index.index].end,
+        };
+
+        self.inputs.iter().enumerate().for_each(|(i, input)| {
+            let input_connection_position = input.position + vec2(20.0, 0.0);
+
+            if connection_position.distance(input_connection_position) < CONNECTION_RADIUS {
+                let connection = Connection {
+                    element: Element::Input,
+                    index: i,
+                };
+                self.connections
+                    .insert_connection(line_point_index, connection);
+            }
+        });
+
+        self.apply_line_connection(line_point_index);
+    }
+
     fn apply_line_connection(&mut self, line_point_index: LinePointIndex) {
         if let Some(connection) = self
             .connections
