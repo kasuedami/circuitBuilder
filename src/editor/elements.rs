@@ -1,4 +1,8 @@
-use eframe::{epaint::{vec2, Color32, Pos2, Shape, Stroke, Vec2}, egui::Rect, emath::RectTransform};
+use eframe::{
+    egui::Rect,
+    emath::RectTransform,
+    epaint::{vec2, Color32, Pos2, Shape, Stroke, Vec2},
+};
 use simulator::function::Function;
 
 pub const CONNECTION_RADIUS: f32 = 5.0;
@@ -16,9 +20,7 @@ pub struct EditorInput {
 
 impl EditorInput {
     pub fn new(position: Pos2) -> Self {
-        Self {
-            position,
-        }
+        Self { position }
     }
 }
 
@@ -27,16 +29,25 @@ impl EditorShape for EditorInput {
 
     fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
-        
+
         let border_stroke = if dragged_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
         };
 
-        let border = Shape::rect_stroke(Rect::from_center_size(transformed_position, Vec2::splat(40.0)), 0.0, border_stroke);
-        let inner = Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
-        let connector = Shape::circle_filled(transformed_position + vec2(20.0, 0.0), CONNECTION_RADIUS, Color32::RED);
+        let border = Shape::rect_stroke(
+            Rect::from_center_size(transformed_position, Vec2::splat(40.0)),
+            0.0,
+            border_stroke,
+        );
+        let inner =
+            Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
+        let connector = Shape::circle_filled(
+            transformed_position + vec2(20.0, 0.0),
+            CONNECTION_RADIUS,
+            Color32::RED,
+        );
 
         Shape::Vec(vec![border, inner, connector])
     }
@@ -49,9 +60,7 @@ pub struct EditorOutput {
 
 impl EditorOutput {
     pub fn new(position: Pos2) -> Self {
-        Self {
-            position,
-        }
+        Self { position }
     }
 }
 
@@ -60,7 +69,7 @@ impl EditorShape for EditorOutput {
 
     fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
-        
+
         let border_stroke = if dragged_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
@@ -68,8 +77,13 @@ impl EditorShape for EditorOutput {
         };
 
         let border = Shape::circle_stroke(transformed_position, 20.0, border_stroke);
-        let inner = Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
-        let connector = Shape::circle_filled(transformed_position + vec2(-20.0, 0.0), CONNECTION_RADIUS, Color32::RED);
+        let inner =
+            Shape::circle_stroke(transformed_position, 16.0, Stroke::new(3.0, Color32::WHITE));
+        let connector = Shape::circle_filled(
+            transformed_position + vec2(-20.0, 0.0),
+            CONNECTION_RADIUS,
+            Color32::RED,
+        );
 
         Shape::Vec(vec![border, inner, connector])
     }
@@ -83,10 +97,7 @@ pub struct EditorComponent {
 
 impl EditorComponent {
     pub fn new(position: Pos2, function: Function) -> Self {
-        Self {
-            position,
-            function,
-        }
+        Self { position, function }
     }
 }
 
@@ -95,17 +106,33 @@ impl EditorShape for EditorComponent {
 
     fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
-        
+
         let border_stroke = if dragged_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
         };
 
-        let border = Shape::rect_stroke(Rect::from_center_size(transformed_position, Vec2::splat(60.0)), 0.0, border_stroke);
-        let in_connector0 = Shape::circle_filled(transformed_position + vec2(-30.0, -15.0), CONNECTION_RADIUS, Color32::RED);
-        let in_connector1 = Shape::circle_filled(transformed_position + vec2(-30.0, 15.0), CONNECTION_RADIUS, Color32::RED);
-        let out_connector0 = Shape::circle_filled(transformed_position + vec2(30.0, 0.0), CONNECTION_RADIUS, Color32::RED);
+        let border = Shape::rect_stroke(
+            Rect::from_center_size(transformed_position, Vec2::splat(60.0)),
+            0.0,
+            border_stroke,
+        );
+        let in_connector0 = Shape::circle_filled(
+            transformed_position + vec2(-30.0, -15.0),
+            CONNECTION_RADIUS,
+            Color32::RED,
+        );
+        let in_connector1 = Shape::circle_filled(
+            transformed_position + vec2(-30.0, 15.0),
+            CONNECTION_RADIUS,
+            Color32::RED,
+        );
+        let out_connector0 = Shape::circle_filled(
+            transformed_position + vec2(30.0, 0.0),
+            CONNECTION_RADIUS,
+            Color32::RED,
+        );
 
         Shape::Vec(vec![border, in_connector0, in_connector1, out_connector0])
     }
@@ -137,9 +164,10 @@ impl EditorShape for EditorLine {
         let start_shape = Shape::circle_filled(real_start, CONNECTION_RADIUS, Color32::GREEN);
         let end_shape = Shape::circle_filled(real_end, CONNECTION_RADIUS, Color32::GREEN);
         let line_shape = Shape::line(vec![real_start, real_end], Stroke::new(5.0, Color32::GREEN));
-        
+
         if start_dragged {
-            let hover_shape = Shape::circle_stroke(real_start, 7.0, Stroke::new(1.0, Color32::GREEN));
+            let hover_shape =
+                Shape::circle_stroke(real_start, 7.0, Stroke::new(1.0, Color32::GREEN));
 
             Shape::Vec(vec![start_shape, end_shape, line_shape, hover_shape])
         } else if end_dragged {
