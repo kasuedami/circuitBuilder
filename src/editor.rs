@@ -183,7 +183,11 @@ impl Editor {
                 .collect();
 
             if let Some(moved_output) = moved_output {
-                // TODO: Apply output connections
+                self.circuit.apply_output_connections(moved_output);
+            }
+
+            if let Some(released_output) = released_output {
+                self.circuit.make_output_connections(released_output);
             }
 
             let mut move_started_line = None;
@@ -332,6 +336,55 @@ impl EditorCircuit {
 }
 
 impl EditorCircuit {
+    fn make_output_connections(&mut self, index: usize) {
+        let connection_position = self.outputs[index].position + vec2(-20.0, 0.0);
+        let connection = Connection {
+            element: Element::Output,
+            index: index,
+        };
+
+        self.lines.iter().enumerate().for_each(|(i, line)| {
+            if connection_position.distance(line.start) < CONNECTION_RADIUS {
+                let line_point_index = LinePointIndex {
+                    index: i,
+                    point: LinePoint::Start,
+                };
+
+                self.connections
+                    .insert_connection(line_point_index, connection.clone());
+            } else if connection_position.distance(line.end) < CONNECTION_RADIUS {
+                let line_point_index = LinePointIndex {
+                    index: i,
+                    point: LinePoint::End,
+                };
+
+                self.connections
+                    .insert_connection(line_point_index, connection.clone());
+            }
+        });
+
+        self.apply_output_connections(index);
+    }
+
+    fn apply_output_connections(&mut self, index: usize) {
+        let connection_position = self.outputs[index].position + vec2(-20.0, 0.0);
+
+        let connection = Connection {
+            element: Element::Output,
+            index,
+        };
+
+        self.connections
+            .connections_for_connected(connection)
+            .iter()
+            .for_each(|line_point_index| match line_point_index.point {
+                LinePoint::Start => self.lines[line_point_index.index].start = connection_position,
+                LinePoint::End => self.lines[line_point_index.index].end = connection_position,
+            });
+    }
+}
+
+impl EditorCircuit {
     fn make_line_connection(&mut self, line_point_index: LinePointIndex) {
         let connection_position = match line_point_index.point {
             LinePoint::Start => self.lines[line_point_index.index].start,
@@ -351,17 +404,30 @@ impl EditorCircuit {
             }
         });
 
-        self.apply_line_connection(line_point_index);
+        self.outputs.iter().enumerate().for_each(|(i, output)| {
+            let output_connection_position = output.position + vec2(-20.0, 0.0);
+
+            if connection_position.distance(output_connection_position) < CONNECTION_RADIUS {
+                let connection = Connection {
+                    element: Element::Output,
+                    index: i,
+                };
+                self.connections
+                    .insert_connection(line_point_index, connection);
+            }
+        });
+
+        self.apply_line_connections(line_point_index);
     }
 
-    fn apply_line_connection(&mut self, line_point_index: LinePointIndex) {
+    fn apply_line_connections(&mut self, line_point_index: LinePointIndex) {
         if let Some(connection) = self
             .connections
             .connection_for_line_point_index(line_point_index)
         {
             let connection_position = match connection.element {
                 Element::Input => self.inputs[connection.index].position + vec2(20.0, 0.0),
-                Element::Output => todo!(),
+                Element::Output => self.outputs[connection.index].position + vec2(-20.0, 0.0),
                 Element::Component(_) => todo!(),
                 Element::Line(_) => todo!(),
             };
