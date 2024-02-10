@@ -69,12 +69,12 @@ impl Editor {
             let line_shapes = self.handle_lines(&ui, &to_screen, &response);
 
             input_shapes
-                .iter()
-                .chain(component_shapes.iter())
-                .chain(output_shapes.iter())
-                .chain(line_shapes.iter())
+                .into_iter()
+                .chain(component_shapes.into_iter())
+                .chain(output_shapes.into_iter())
+                .chain(line_shapes.into_iter())
                 .for_each(|shape| {
-                    painter.add(shape.clone());
+                    painter.add(shape);
                 });
         });
     }
