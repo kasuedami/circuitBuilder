@@ -87,6 +87,7 @@ impl Editor {
         to_screen: &RectTransform,
         painter_response: &Response,
     ) -> Vec<Shape> {
+        let mut new_input_line = None;
         let mut moved_input = None;
         let mut released_input = None;
 
@@ -126,12 +127,16 @@ impl Editor {
                         input.position + vec2(20.0, 0.0),
                     ));
 
-                    // TODO: Form connection with the new line
+                    new_input_line = Some(i);
                 }
 
                 input.get_shape(to_screen, point_response.dragged())
             })
             .collect();
+
+        if let Some(input_index) = new_input_line {
+            self.circuit.make_input_connections(input_index);
+        }
 
         if let Some(moved_input) = moved_input {
             self.circuit.apply_input_connections(moved_input);
@@ -181,6 +186,7 @@ impl Editor {
         to_screen: &RectTransform,
         painter_response: &Response,
     ) -> Vec<Shape> {
+        let mut new_output_line = None;
         let mut moved_output = None;
         let mut released_output = None;
 
@@ -220,12 +226,16 @@ impl Editor {
                         output.position + vec2(-20.0, 0.0),
                     ));
 
-                    // TODO: Form connection with the new line
+                    new_output_line = Some(i);
                 }
 
                 output.get_shape(&to_screen, point_response.dragged())
             })
             .collect();
+
+        if let Some(output_index) = new_output_line {
+            self.circuit.make_output_connections(output_index);
+        }
 
         if let Some(moved_output) = moved_output {
             self.circuit.apply_output_connections(moved_output);
