@@ -1,5 +1,6 @@
 use eframe::{
     egui::{self, CentralPanel, Sense},
+    emath::RectTransform,
     epaint::{vec2, Pos2, Rect, Vec2},
 };
 use egui::*;
@@ -38,7 +39,7 @@ impl Editor {
                 Sense::hover(),
             );
 
-            let to_screen = emath::RectTransform::from_to(
+            let to_screen = RectTransform::from_to(
                 Rect::from_min_size(Pos2::ZERO, response.rect.size()),
                 response.rect,
             );
@@ -62,208 +63,10 @@ impl Editor {
                     .push(EditorOutput::new((response.rect.size() / 2.0).to_pos2()));
             }
 
-            let mut moved_input = None;
-            let mut released_input = None;
-
-            let input_shapes: Vec<Shape> = self
-                .circuit
-                .inputs
-                .iter_mut()
-                .enumerate()
-                .map(|(i, input)| {
-                    let size = Vec2::splat(40.0);
-
-                    let point_in_screen = to_screen.transform_pos(input.position);
-                    let point_in_rect = Rect::from_center_size(point_in_screen, size);
-                    let point_id = response.id.with("input".to_owned() + &i.to_string());
-                    let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
-
-                    if point_response.dragged() {
-                        input.position += point_response.drag_delta();
-                        input.position = to_screen.from().clamp(input.position);
-
-                        moved_input = Some(i);
-                    } else if point_response.drag_released() {
-                        released_input = Some(i);
-                    }
-
-                    let connector_position = point_in_screen + Vec2::new(20.0, 0.0);
-                    let connector_rect =
-                        Rect::from_center_size(connector_position, Vec2::splat(10.0));
-                    let connector_id = response
-                        .id
-                        .with("input connector".to_owned() + &i.to_string());
-                    let connector_response =
-                        ui.interact(connector_rect, connector_id, Sense::click());
-
-                    if connector_response.clicked() {
-                        self.circuit.lines.push(EditorLine::from_single_pos(
-                            input.position + vec2(20.0, 0.0),
-                        ));
-
-                        // TODO: Form connection with the new line
-                    }
-
-                    input.get_shape(to_screen, point_response.dragged())
-                })
-                .collect();
-
-            if let Some(moved_input) = moved_input {
-                self.circuit.apply_input_connections(moved_input);
-            }
-
-            if let Some(released_input) = released_input {
-                self.circuit.make_input_connections(released_input);
-            };
-
-            let component_shapes: Vec<Shape> = self
-                .circuit
-                .components
-                .iter_mut()
-                .enumerate()
-                .map(|(i, component)| {
-                    let size = Vec2::splat(60.0);
-
-                    let point_in_screen = to_screen.transform_pos(component.position);
-                    let point_in_rect = Rect::from_center_size(point_in_screen, size);
-                    let point_id = response.id.with("component".to_owned() + &i.to_string());
-                    let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
-
-                    component.position += point_response.drag_delta();
-                    component.position = to_screen.from().clamp(component.position);
-
-                    component.get_shape(to_screen, point_response.dragged())
-                })
-                .collect();
-
-            let mut moved_output = None;
-            let mut released_output = None;
-
-            let output_shapes: Vec<Shape> = self
-                .circuit
-                .outputs
-                .iter_mut()
-                .enumerate()
-                .map(|(i, output)| {
-                    let size = Vec2::splat(60.0);
-
-                    let point_in_screen = to_screen.transform_pos(output.position);
-                    let point_in_rect = Rect::from_center_size(point_in_screen, size);
-                    let point_id = response.id.with("output".to_owned() + &i.to_string());
-                    let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
-
-                    if point_response.dragged() {
-                        output.position += point_response.drag_delta();
-                        output.position = to_screen.from().clamp(output.position);
-
-                        moved_output = Some(i);
-                    } else if point_response.drag_released() {
-                        released_output = Some(i);
-                    }
-
-                    let connector_position = point_in_screen + Vec2::new(-20.0, 0.0);
-                    let connector_rect =
-                        Rect::from_center_size(connector_position, Vec2::splat(10.0));
-                    let connector_id = response
-                        .id
-                        .with("output connector".to_owned() + &i.to_string());
-                    let connector_response =
-                        ui.interact(connector_rect, connector_id, Sense::click());
-
-                    if connector_response.clicked() {
-                        self.circuit.lines.push(EditorLine::from_single_pos(
-                            output.position + vec2(-20.0, 0.0),
-                        ));
-
-                        // TODO: Form connection with the new line
-                    }
-
-                    output.get_shape(to_screen, point_response.dragged())
-                })
-                .collect();
-
-            if let Some(moved_output) = moved_output {
-                self.circuit.apply_output_connections(moved_output);
-            }
-
-            if let Some(released_output) = released_output {
-                self.circuit.make_output_connections(released_output);
-            }
-
-            let mut move_started_line = None;
-            let mut released_line = None;
-
-            let line_shapes: Vec<Shape> = self
-                .circuit
-                .lines
-                .iter_mut()
-                .enumerate()
-                .map(|(i, line)| {
-                    let size = Vec2::splat(10.0);
-
-                    let start_dragged = {
-                        let start_in_screen = to_screen.transform_pos(line.start);
-                        let start_rect = Rect::from_center_size(start_in_screen, size);
-                        let start_id = response.id.with("line start".to_string() + &i.to_string());
-                        let start_response = ui.interact(start_rect, start_id, Sense::drag());
-
-                        if start_response.drag_started() {
-                            move_started_line = Some(LinePointIndex {
-                                index: i,
-                                point: LinePoint::Start,
-                            });
-                        }
-
-                        if start_response.dragged() {
-                            line.start += start_response.drag_delta();
-                            line.start = to_screen.from().clamp(line.start);
-                        } else if start_response.drag_released() {
-                            released_line = Some(LinePointIndex {
-                                index: i,
-                                point: LinePoint::Start,
-                            });
-                        }
-
-                        start_response.dragged()
-                    };
-
-                    let end_dragged = {
-                        let end_in_screen = to_screen.transform_pos(line.end);
-                        let end_rect = Rect::from_center_size(end_in_screen, size);
-                        let end_id = response.id.with("line end".to_string() + &i.to_string());
-                        let end_response = ui.interact(end_rect, end_id, Sense::drag());
-
-                        if end_response.drag_started() {
-                            move_started_line = Some(LinePointIndex {
-                                index: i,
-                                point: LinePoint::End,
-                            })
-                        }
-
-                        if end_response.dragged() {
-                            line.end += end_response.drag_delta();
-                            line.end = to_screen.from().clamp(line.end);
-                        } else if end_response.drag_released() {
-                            released_line = Some(LinePointIndex {
-                                index: i,
-                                point: LinePoint::End,
-                            });
-                        }
-
-                        end_response.dragged()
-                    };
-
-                    line.get_shape(to_screen, (start_dragged, end_dragged))
-                })
-                .collect();
-
-            if let Some(move_started_line) = move_started_line {
-                self.circuit.connections.remove_for(move_started_line);
-            }
-
-            if let Some(released_line) = released_line {
-                self.circuit.make_line_connection(released_line);
-            }
+            let input_shapes = self.handle_inputs(&ui, &to_screen, &response);
+            let component_shapes = self.handle_components(&ui, &to_screen, &response);
+            let output_shapes = self.handle_outputs(&ui, &to_screen, &response);
+            let line_shapes = self.handle_lines(&ui, &to_screen, &response);
 
             input_shapes
                 .iter()
@@ -274,6 +77,253 @@ impl Editor {
                     painter.add(shape.clone());
                 });
         });
+    }
+}
+
+impl Editor {
+    fn handle_inputs(
+        &mut self,
+        ui: &Ui,
+        to_screen: &RectTransform,
+        painter_response: &Response,
+    ) -> Vec<Shape> {
+        let mut moved_input = None;
+        let mut released_input = None;
+
+        let input_shapes = self
+            .circuit
+            .inputs
+            .iter_mut()
+            .enumerate()
+            .map(|(i, input)| {
+                let size = Vec2::splat(40.0);
+
+                let point_in_screen = to_screen.transform_pos(input.position);
+                let point_in_rect = Rect::from_center_size(point_in_screen, size);
+                let point_id = painter_response
+                    .id
+                    .with("input".to_owned() + &i.to_string());
+                let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
+
+                if point_response.dragged() {
+                    input.position += point_response.drag_delta();
+                    input.position = to_screen.from().clamp(input.position);
+
+                    moved_input = Some(i);
+                } else if point_response.drag_released() {
+                    released_input = Some(i);
+                }
+
+                let connector_position = point_in_screen + Vec2::new(20.0, 0.0);
+                let connector_rect = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+                let connector_id = painter_response
+                    .id
+                    .with("input connector".to_owned() + &i.to_string());
+                let connector_response = ui.interact(connector_rect, connector_id, Sense::click());
+
+                if connector_response.clicked() {
+                    self.circuit.lines.push(EditorLine::from_single_pos(
+                        input.position + vec2(20.0, 0.0),
+                    ));
+
+                    // TODO: Form connection with the new line
+                }
+
+                input.get_shape(to_screen, point_response.dragged())
+            })
+            .collect();
+
+        if let Some(moved_input) = moved_input {
+            self.circuit.apply_input_connections(moved_input);
+        }
+
+        if let Some(released_input) = released_input {
+            self.circuit.make_input_connections(released_input);
+        };
+
+        input_shapes
+    }
+
+    fn handle_components(
+        &mut self,
+        ui: &Ui,
+        to_screen: &RectTransform,
+        painter_response: &Response,
+    ) -> Vec<Shape> {
+        let component_shapes: Vec<Shape> = self
+            .circuit
+            .components
+            .iter_mut()
+            .enumerate()
+            .map(|(i, component)| {
+                let size = Vec2::splat(60.0);
+
+                let point_in_screen = to_screen.transform_pos(component.position);
+                let point_in_rect = Rect::from_center_size(point_in_screen, size);
+                let point_id = painter_response
+                    .id
+                    .with("component".to_owned() + &i.to_string());
+                let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
+
+                component.position += point_response.drag_delta();
+                component.position = to_screen.from().clamp(component.position);
+
+                component.get_shape(to_screen, point_response.dragged())
+            })
+            .collect();
+
+        component_shapes
+    }
+
+    fn handle_outputs(
+        &mut self,
+        ui: &Ui,
+        to_screen: &RectTransform,
+        painter_response: &Response,
+    ) -> Vec<Shape> {
+        let mut moved_output = None;
+        let mut released_output = None;
+
+        let output_shapes: Vec<Shape> = self
+            .circuit
+            .outputs
+            .iter_mut()
+            .enumerate()
+            .map(|(i, output)| {
+                let size = Vec2::splat(60.0);
+
+                let point_in_screen = to_screen.transform_pos(output.position);
+                let point_in_rect = Rect::from_center_size(point_in_screen, size);
+                let point_id = painter_response
+                    .id
+                    .with("output".to_owned() + &i.to_string());
+                let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
+
+                if point_response.dragged() {
+                    output.position += point_response.drag_delta();
+                    output.position = to_screen.from().clamp(output.position);
+
+                    moved_output = Some(i);
+                } else if point_response.drag_released() {
+                    released_output = Some(i);
+                }
+
+                let connector_position = point_in_screen + Vec2::new(-20.0, 0.0);
+                let connector_rect = Rect::from_center_size(connector_position, Vec2::splat(10.0));
+                let connector_id = painter_response
+                    .id
+                    .with("output connector".to_owned() + &i.to_string());
+                let connector_response = ui.interact(connector_rect, connector_id, Sense::click());
+
+                if connector_response.clicked() {
+                    self.circuit.lines.push(EditorLine::from_single_pos(
+                        output.position + vec2(-20.0, 0.0),
+                    ));
+
+                    // TODO: Form connection with the new line
+                }
+
+                output.get_shape(&to_screen, point_response.dragged())
+            })
+            .collect();
+
+        if let Some(moved_output) = moved_output {
+            self.circuit.apply_output_connections(moved_output);
+        }
+
+        if let Some(released_output) = released_output {
+            self.circuit.make_output_connections(released_output);
+        }
+
+        output_shapes
+    }
+
+    fn handle_lines(
+        &mut self,
+        ui: &Ui,
+        to_screen: &RectTransform,
+        painter_response: &Response,
+    ) -> Vec<Shape> {
+        let mut move_started_line = None;
+        let mut released_line = None;
+
+        let line_shapes: Vec<Shape> = self
+            .circuit
+            .lines
+            .iter_mut()
+            .enumerate()
+            .map(|(i, line)| {
+                let size = Vec2::splat(10.0);
+
+                let start_dragged = {
+                    let start_in_screen = to_screen.transform_pos(line.start);
+                    let start_rect = Rect::from_center_size(start_in_screen, size);
+                    let start_id = painter_response
+                        .id
+                        .with("line start".to_string() + &i.to_string());
+                    let start_response = ui.interact(start_rect, start_id, Sense::drag());
+
+                    if start_response.drag_started() {
+                        move_started_line = Some(LinePointIndex {
+                            index: i,
+                            point: LinePoint::Start,
+                        });
+                    }
+
+                    if start_response.dragged() {
+                        line.start += start_response.drag_delta();
+                        line.start = to_screen.from().clamp(line.start);
+                    } else if start_response.drag_released() {
+                        released_line = Some(LinePointIndex {
+                            index: i,
+                            point: LinePoint::Start,
+                        });
+                    }
+
+                    start_response.dragged()
+                };
+
+                let end_dragged = {
+                    let end_in_screen = to_screen.transform_pos(line.end);
+                    let end_rect = Rect::from_center_size(end_in_screen, size);
+                    let end_id = painter_response
+                        .id
+                        .with("line end".to_string() + &i.to_string());
+                    let end_response = ui.interact(end_rect, end_id, Sense::drag());
+
+                    if end_response.drag_started() {
+                        move_started_line = Some(LinePointIndex {
+                            index: i,
+                            point: LinePoint::End,
+                        })
+                    }
+
+                    if end_response.dragged() {
+                        line.end += end_response.drag_delta();
+                        line.end = to_screen.from().clamp(line.end);
+                    } else if end_response.drag_released() {
+                        released_line = Some(LinePointIndex {
+                            index: i,
+                            point: LinePoint::End,
+                        });
+                    }
+
+                    end_response.dragged()
+                };
+
+                line.get_shape(&to_screen, (start_dragged, end_dragged))
+            })
+            .collect();
+
+        if let Some(move_started_line) = move_started_line {
+            self.circuit.connections.remove_for(move_started_line);
+        }
+
+        if let Some(released_line) = released_line {
+            self.circuit.make_line_connection(released_line);
+        }
+
+        line_shapes
     }
 }
 

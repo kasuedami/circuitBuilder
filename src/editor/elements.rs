@@ -10,7 +10,7 @@ pub const CONNECTION_RADIUS: f32 = 5.0;
 pub trait EditorShape {
     type DraggedInfo;
 
-    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape;
+    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape;
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl EditorInput {
 impl EditorShape for EditorInput {
     type DraggedInfo = bool;
 
-    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
 
         let border_stroke = if dragged_info {
@@ -67,7 +67,7 @@ impl EditorOutput {
 impl EditorShape for EditorOutput {
     type DraggedInfo = bool;
 
-    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
 
         let border_stroke = if dragged_info {
@@ -104,7 +104,7 @@ impl EditorComponent {
 impl EditorShape for EditorComponent {
     type DraggedInfo = bool;
 
-    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
 
         let border_stroke = if dragged_info {
@@ -156,7 +156,7 @@ impl EditorLine {
 impl EditorShape for EditorLine {
     type DraggedInfo = (bool, bool);
 
-    fn get_shape(&self, transform: RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
         let (start_dragged, end_dragged) = dragged_info;
         let real_start = transform.transform_pos(self.start);
         let real_end = transform.transform_pos(self.end);
