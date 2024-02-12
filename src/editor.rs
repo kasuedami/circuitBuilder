@@ -7,7 +7,9 @@ use egui::*;
 use simulator::function::Function;
 
 use self::{
-    connection::{Connection, Connections, Element, LinePoint, LinePointIndex},
+    connection::{
+        ComponentConnection, Connection, Connections, Element, LinePoint, LinePointIndex,
+    },
     elements::{
         EditorComponent, EditorInput, EditorLine, EditorOutput, EditorShape, CONNECTION_RADIUS,
     },
@@ -155,13 +157,17 @@ impl Editor {
         to_screen: &RectTransform,
         painter_response: &Response,
     ) -> Vec<Shape> {
+        let mut new_line = None;
+        let mut moved_component = None;
+        let mut released_component = None;
+
         let component_shapes: Vec<Shape> = self
             .circuit
             .components
             .iter_mut()
             .enumerate()
             .map(|(i, component)| {
-                let size = Vec2::splat(60.0);
+                let size = component.size();
 
                 let point_in_screen = to_screen.transform_pos(component.position);
                 let point_in_rect = Rect::from_center_size(point_in_screen, size);
@@ -170,12 +176,80 @@ impl Editor {
                     .with("component".to_owned() + &i.to_string());
                 let point_response = ui.interact(point_in_rect, point_id, Sense::drag());
 
-                component.position += point_response.drag_delta();
-                component.position = to_screen.from().clamp(component.position);
+                if point_response.dragged() {
+                    component.position += point_response.drag_delta();
+                    component.position = to_screen.from().clamp(component.position);
+
+                    moved_component = Some(i);
+                } else if point_response.drag_released() {
+                    released_component = Some(i);
+                }
+
+                for (j, &input_connector_position) in
+                    component.input_connector_positions().iter().enumerate()
+                {
+                    let input_connector_rect = Rect::from_center_size(
+                        to_screen.transform_pos(input_connector_position),
+                        Vec2::splat(10.0),
+                    );
+                    let input_connector_id = painter_response.id.with(
+                        "component ".to_owned()
+                            + &i.to_string()
+                            + " input connector"
+                            + &j.to_string(),
+                    );
+                    let input_connector_response =
+                        ui.interact(input_connector_rect, input_connector_id, Sense::click());
+
+                    if input_connector_response.clicked() {
+                        self.circuit
+                            .lines
+                            .push(EditorLine::from_single_pos(input_connector_position));
+
+                        new_line = Some(i);
+                    }
+                }
+
+                for (j, &output_connector_position) in
+                    component.output_connector_positions().iter().enumerate()
+                {
+                    let output_connector_rect = Rect::from_center_size(
+                        to_screen.transform_pos(output_connector_position),
+                        Vec2::splat(10.0),
+                    );
+                    let output_connector_id = painter_response.id.with(
+                        "component ".to_owned()
+                            + &i.to_string()
+                            + " output connector"
+                            + &j.to_string(),
+                    );
+                    let output_connector_response =
+                        ui.interact(output_connector_rect, output_connector_id, Sense::click());
+
+                    if output_connector_response.clicked() {
+                        self.circuit
+                            .lines
+                            .push(EditorLine::from_single_pos(output_connector_position));
+
+                        new_line = Some(i);
+                    }
+                }
 
                 component.get_shape(to_screen, point_response.dragged())
             })
             .collect();
+
+        if let Some(component_index) = new_line {
+            self.circuit.make_component_connections(component_index);
+        }
+
+        if let Some(component_index) = moved_component {
+            self.circuit.apply_component_connections(component_index);
+        }
+
+        if let Some(component_index) = released_component {
+            self.circuit.make_component_connections(component_index);
+        };
 
         component_shapes
     }
@@ -351,7 +425,7 @@ impl EditorCircuit {
         let connection_position = self.inputs[index].position + vec2(20.0, 0.0);
         let connection = Connection {
             element: Element::Input,
-            index: index,
+            index,
         };
 
         self.lines.iter().enumerate().for_each(|(i, line)| {
@@ -396,11 +470,137 @@ impl EditorCircuit {
 }
 
 impl EditorCircuit {
+    fn make_component_connections(&mut self, index: usize) {
+        self.lines.iter().enumerate().for_each(|(i, line)| {
+            for (j, input_connector_position) in self.components[index]
+                .input_connector_positions()
+                .iter()
+                .enumerate()
+            {
+                let input_connection = Connection {
+                    element: Element::Component(ComponentConnection {
+                        input: true,
+                        index: j,
+                    }),
+                    index,
+                };
+
+                if input_connector_position.distance(line.start) < CONNECTION_RADIUS {
+                    let line_point_index = LinePointIndex {
+                        index: i,
+                        point: LinePoint::Start,
+                    };
+
+                    self.connections
+                        .insert_connection(line_point_index, input_connection);
+                } else if input_connector_position.distance(line.end) < CONNECTION_RADIUS {
+                    let line_point_index = LinePointIndex {
+                        index: i,
+                        point: LinePoint::End,
+                    };
+
+                    self.connections
+                        .insert_connection(line_point_index, input_connection);
+                }
+            }
+
+            for (j, output_connector_position) in self.components[index]
+                .output_connector_positions()
+                .iter()
+                .enumerate()
+            {
+                let output_connection = Connection {
+                    element: Element::Component(ComponentConnection {
+                        input: false,
+                        index: j,
+                    }),
+                    index,
+                };
+
+                if output_connector_position.distance(line.start) < CONNECTION_RADIUS {
+                    let line_point_index = LinePointIndex {
+                        index: i,
+                        point: LinePoint::Start,
+                    };
+
+                    self.connections
+                        .insert_connection(line_point_index, output_connection);
+                } else if output_connector_position.distance(line.end) < CONNECTION_RADIUS {
+                    let line_point_index = LinePointIndex {
+                        index: i,
+                        point: LinePoint::End,
+                    };
+
+                    self.connections
+                        .insert_connection(line_point_index, output_connection);
+                }
+            }
+        });
+
+        self.apply_component_connections(index);
+    }
+
+    fn apply_component_connections(&mut self, index: usize) {
+        for (i, &input_connector_position) in self.components[index]
+            .input_connector_positions()
+            .iter()
+            .enumerate()
+        {
+            let input_connection = Connection {
+                element: Element::Component(ComponentConnection {
+                    input: true,
+                    index: i,
+                }),
+                index,
+            };
+
+            self.connections
+                .connections_for_connected(input_connection)
+                .iter()
+                .for_each(|line_point_index| match line_point_index.point {
+                    LinePoint::Start => {
+                        self.lines[line_point_index.index].start = input_connector_position
+                    }
+                    LinePoint::End => {
+                        self.lines[line_point_index.index].end = input_connector_position
+                    }
+                });
+        }
+
+        for (i, &output_connector_position) in self.components[index]
+            .output_connector_positions()
+            .iter()
+            .enumerate()
+        {
+            let output_connection = Connection {
+                element: Element::Component(ComponentConnection {
+                    input: false,
+                    index: i,
+                }),
+                index,
+            };
+
+            self.connections
+                .connections_for_connected(output_connection)
+                .iter()
+                .for_each(|line_point_index| match line_point_index.point {
+                    LinePoint::Start => {
+                        self.lines[line_point_index.index].start = output_connector_position
+                    }
+                    LinePoint::End => {
+                        self.lines[line_point_index.index].end = output_connector_position
+                    }
+                });
+        }
+    }
+}
+
+impl EditorCircuit {
     fn make_output_connections(&mut self, index: usize) {
         let connection_position = self.outputs[index].position + vec2(-20.0, 0.0);
         let connection = Connection {
             element: Element::Output,
-            index: index,
+            index,
         };
 
         self.lines.iter().enumerate().for_each(|(i, line)| {
