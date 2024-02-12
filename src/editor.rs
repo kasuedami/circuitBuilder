@@ -235,7 +235,8 @@ impl Editor {
                     }
                 }
 
-                component.get_shape(to_screen, point_response.dragged())
+                let fonts = ui.fonts(|fonts| fonts.clone());
+                component.get_shape(to_screen, (point_response.dragged(), fonts))
             })
             .collect();
 

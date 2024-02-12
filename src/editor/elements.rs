@@ -1,16 +1,16 @@
 use eframe::{
     egui::Rect,
-    emath::RectTransform,
-    epaint::{pos2, vec2, Color32, Pos2, Shape, Stroke, Vec2},
+    emath::{Align2, RectTransform},
+    epaint::{pos2, vec2, Color32, FontFamily, FontId, Fonts, Pos2, Shape, Stroke, Vec2},
 };
 use simulator::function::Function;
 
 pub const CONNECTION_RADIUS: f32 = 5.0;
 
 pub trait EditorShape {
-    type DraggedInfo;
+    type AdditionalInfo;
 
-    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape;
+    fn get_shape(&self, transform: &RectTransform, additional_info: Self::AdditionalInfo) -> Shape;
 }
 
 #[derive(Debug)]
@@ -25,12 +25,12 @@ impl EditorInput {
 }
 
 impl EditorShape for EditorInput {
-    type DraggedInfo = bool;
+    type AdditionalInfo = bool;
 
-    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, additional_info: Self::AdditionalInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
 
-        let border_stroke = if dragged_info {
+        let border_stroke = if additional_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
@@ -65,12 +65,12 @@ impl EditorOutput {
 }
 
 impl EditorShape for EditorOutput {
-    type DraggedInfo = bool;
+    type AdditionalInfo = bool;
 
-    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, additional_info: Self::AdditionalInfo) -> Shape {
         let transformed_position = transform.transform_pos(self.position);
 
-        let border_stroke = if dragged_info {
+        let border_stroke = if additional_info {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
@@ -154,13 +154,13 @@ impl EditorComponent {
 }
 
 impl EditorShape for EditorComponent {
-    type DraggedInfo = bool;
+    type AdditionalInfo = (bool, Fonts);
 
-    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
+    fn get_shape(&self, transform: &RectTransform, additional_info: Self::AdditionalInfo) -> Shape {
         let mut shapes = vec![];
         let transformed_position = transform.transform_pos(self.position);
 
-        let border_stroke = if dragged_info {
+        let border_stroke = if additional_info.0 {
             Stroke::new(4.0, Color32::WHITE)
         } else {
             Stroke::new(3.0, Color32::WHITE)
@@ -171,6 +171,17 @@ impl EditorShape for EditorComponent {
             Rect::from_center_size(transformed_position, self.size()),
             0.0,
             border_stroke,
+        ));
+
+        // Text
+        let text = self.function.to_string();
+        shapes.push(Shape::text(
+            &additional_info.1,
+            transformed_position,
+            Align2::CENTER_CENTER,
+            text,
+            FontId::new(12.0, FontFamily::Monospace),
+            Color32::WHITE,
         ));
 
         // Inputs
@@ -215,10 +226,10 @@ impl EditorLine {
 }
 
 impl EditorShape for EditorLine {
-    type DraggedInfo = (bool, bool);
+    type AdditionalInfo = (bool, bool);
 
-    fn get_shape(&self, transform: &RectTransform, dragged_info: Self::DraggedInfo) -> Shape {
-        let (start_dragged, end_dragged) = dragged_info;
+    fn get_shape(&self, transform: &RectTransform, additional_info: Self::AdditionalInfo) -> Shape {
+        let (start_dragged, end_dragged) = additional_info;
         let real_start = transform.transform_pos(self.start);
         let real_end = transform.transform_pos(self.end);
 
