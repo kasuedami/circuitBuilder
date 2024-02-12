@@ -722,16 +722,23 @@ impl EditorCircuit {
             .connections
             .connection_for_line_point_index(line_point_index)
         {
-            let connection_position = match connection.element {
-                Element::Input => self.inputs[connection.index].position + vec2(20.0, 0.0),
-                Element::Output => self.outputs[connection.index].position + vec2(-20.0, 0.0),
-                Element::Component(_) => todo!(),
-                Element::Line(_) => todo!(),
-            };
+            match connection.element {
+                Element::Line(connection_point) => {
+                    let connection_position = match connection_point {
+                        LinePoint::Start => self.lines[connection.index].start,
+                        LinePoint::End => self.lines[connection.index].end,
+                    };
 
-            match line_point_index.point {
-                LinePoint::Start => self.lines[line_point_index.index].start = connection_position,
-                LinePoint::End => self.lines[line_point_index.index].end = connection_position,
+                    match line_point_index.point {
+                        LinePoint::Start => {
+                            self.lines[line_point_index.index].start = connection_position
+                        }
+                        LinePoint::End => {
+                            self.lines[line_point_index.index].end = connection_position
+                        }
+                    }
+                }
+                _ => (), // Other connections should not exist
             }
         }
     }
