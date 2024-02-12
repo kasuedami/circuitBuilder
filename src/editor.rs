@@ -18,6 +18,20 @@ use self::{
 mod connection;
 mod elements;
 
+const NON_SUB_CIRCUIT_FUNCTIONS: [Function; 11] = [
+    Function::And,
+    Function::Or,
+    Function::Xor,
+    Function::Nor,
+    Function::Nand,
+    Function::Nor,
+    Function::Xnor,
+    Function::FlipFlopRS,
+    Function::FlipFlopJK,
+    Function::FlipFlopD,
+    Function::FlipFlopT,
+];
+
 #[derive(Default)]
 pub struct Editor {
     circuit: EditorCircuit,
@@ -26,15 +40,32 @@ pub struct Editor {
 impl Editor {
     pub fn update(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            let button_responses = ui.horizontal_top(|ui| {
-                let input_response = ui.button("Input");
-                let component_response = ui.button("Component");
-                let output_response = ui.button("Output");
+            let button_responses = ui.vertical(|ui| {
+                let (input_response, output_response) = ui
+                    .horizontal_top(|ui| {
+                        let input_response = ui.button("Input");
+                        let output_response = ui.button("Output");
 
-                (input_response, component_response, output_response)
+                        (input_response, output_response)
+                    })
+                    .inner;
+
+                let component_responese = ui
+                    .horizontal_top(|ui| {
+                        ui.label("Components:");
+
+                        let component_responses: Vec<_> = NON_SUB_CIRCUIT_FUNCTIONS
+                            .iter()
+                            .map(|function| ui.button(function.to_string()))
+                            .collect();
+                        component_responses
+                    })
+                    .inner;
+
+                (input_response, output_response, component_responese)
             });
 
-            let (input_response, component_response, output_response) = button_responses.inner;
+            let (input_response, output_response, component_responses) = button_responses.inner;
 
             let (response, painter) = ui.allocate_painter(
                 vec2(ui.available_width(), ui.available_height()),
@@ -52,18 +83,23 @@ impl Editor {
                     .push(EditorInput::new((response.rect.size() / 2.0).to_pos2()))
             }
 
-            if component_response.clicked() {
-                self.circuit.components.push(EditorComponent::new(
-                    (response.rect.size() / 2.0).to_pos2(),
-                    Function::And,
-                ));
-            }
-
             if output_response.clicked() {
                 self.circuit
                     .outputs
                     .push(EditorOutput::new((response.rect.size() / 2.0).to_pos2()));
             }
+
+            component_responses
+                .iter()
+                .zip(NON_SUB_CIRCUIT_FUNCTIONS.iter())
+                .for_each(|(component_response, function)| {
+                    if component_response.clicked() {
+                        self.circuit.components.push(EditorComponent::new(
+                            (response.rect.size() / 2.0).to_pos2(),
+                            function.clone(),
+                        ));
+                    }
+                });
 
             let input_shapes = self.handle_inputs(&ui, &to_screen, &response);
             let component_shapes = self.handle_components(&ui, &to_screen, &response);
